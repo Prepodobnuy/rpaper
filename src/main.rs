@@ -155,8 +155,6 @@ fn cache_wallpaper(image_path: &str, displays: &Vec<Display>, cached_wallpapers_
 
     if !cache_is_needed { return }
     let command = format!("rpaper_cache {}", image_path);
-    println!("\n\n\n\n\n{}\n\n\n\n\n", image_path);
-    println!("rpaper_cache {}", command);
     start(command);
 }
 
@@ -201,18 +199,25 @@ fn templates(config: &Value) {
     }
 }
 
+fn get_image_path() -> String {
+    let args: Vec<String> = env::args().collect();
+    let image_path: String = String::from(&args[1]);
+
+    let current_dir = std::env::current_dir().unwrap();
+    let absolute_path = current_dir.join(image_path).to_string_lossy().to_string();
+    
+    return absolute_path;
+}
+
 fn main() {
     let config: Value = read_config();
-    
-    let args: Vec<String> = env::args().collect();
-    let image_path: &str = &args[1];
-    
     let displays: Vec<Display> = get_displays(&config);
-
-    let cached_wallpapers_path = config["cached_wallpapers_dir"].as_str().unwrap();
-
-    let raw_swww_args = config["swww_params"].as_str().unwrap();
+    let cached_wallpapers_path: &str = config["cached_wallpapers_dir"].as_str().unwrap();
+    let raw_swww_args: &str = config["swww_params"].as_str().unwrap();
     let raw_wal_args = String::from(config["wal_params"].as_str().unwrap());
+    
+    let image_path: &str = &get_image_path();
+
     let wal_args = format!("python -m pywal {} -i {}", raw_wal_args, image_path);
 
     if config["use_pywal"].as_bool().unwrap() { start(wal_args); }
