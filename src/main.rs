@@ -7,6 +7,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::error::Error;
 
+use serde_json::ser::Formatter;
 use serde_json::Value;
 
 struct Display {
@@ -20,6 +21,7 @@ struct Display {
 struct ColorVariable {
     name: String,
     value: usize,
+    brightness: i32,
 }
 
 struct Template {
@@ -71,6 +73,7 @@ fn get_color_variables(config: &Value) -> Vec<ColorVariable> {
         colors.push(ColorVariable {
             name: String::from(raw_variable["name"].as_str().unwrap()),
             value: raw_variable["value"].as_u64().unwrap() as usize,
+            brightness: raw_variable["brightness"].as_i64().unwrap() as i32,
         })
     }
     return colors;
@@ -171,6 +174,23 @@ fn set_wallpaper(image_path: &str, displays: &Vec<Display>, cached_wallpapers_pa
     }
 }
 
+fn process_color(color: u8, brightness: i32) -> String {
+    if color as i32 + brightness >= 255 {
+        return String::from("FF");
+    }
+    if color as i32 + brightness <= 0 {
+        return String::from("00");
+    }
+
+    let tmp: i32 = color as i32 + &brightness;
+    let hex = format!("{:X}", tmp);
+    
+    if hex.len() == 1 {
+        return format!("0{}", hex);
+    }
+    return  hex;
+}
+
 fn templates(config: &Value) {
     let variables = get_color_variables(config);
     let templates = get_templates(config);
@@ -182,7 +202,13 @@ fn templates(config: &Value) {
         file.read_to_string(&mut data).unwrap();
 
         for variable in &variables {
-            let mut color = format!("{}{}", &colors[variable.value], template.opacity);
+            let value = &colors[variable.value][1..];
+            let br = variable.brightness;
+            let r:u8 = u8::from_str_radix(&value[0..2], 16).unwrap(); 
+            let g:u8 = u8::from_str_radix(&value[2..4], 16).unwrap(); 
+            let b:u8 = u8::from_str_radix(&value[4..6], 16).unwrap(); 
+
+            let mut color = format!("#{}{}{}{}", process_color(r, br), process_color(g, br), process_color(b, br), template.opacity);
 
             if !template.use_sharps {
                 color = String::from(&color[1..]);
@@ -210,12 +236,23 @@ fn get_image_path() -> String {
 }
 
 fn main() {
+
+    //let a = String::from("ffffff");
+//
+    //let r:u8 = u8::from_str_radix(&a[0..2], 16).unwrap(); 
+    //let g:u8 = u8::from_str_radix(&a[2..4], 16).unwrap(); 
+    //let b:u8 = u8::from_str_radix(&a[4..6], 16).unwrap(); 
+//
+    //let hex_r = format!("0x{:X}", r);
+//
+    //println!("Hex number: {}", &hex_r[2..4]);
+    //println!("{} {} {}", r, g, b);
     let config: Value = read_config();
     let displays: Vec<Display> = get_displays(&config);
     let cached_wallpapers_path: &str = config["cached_wallpapers_dir"].as_str().unwrap();
     let raw_swww_args: &str = config["swww_params"].as_str().unwrap();
     let raw_wal_args = String::from(config["wal_params"].as_str().unwrap());
-    
+
     let image_path: &str = &get_image_path();
 
     let wal_args = format!("python -m pywal {} -i {}", raw_wal_args, image_path);
@@ -225,5 +262,4 @@ fn main() {
 
     cache_wallpaper(image_path, &displays, cached_wallpapers_path);
     set_wallpaper(image_path, &displays, cached_wallpapers_path, raw_swww_args);
-
 }
