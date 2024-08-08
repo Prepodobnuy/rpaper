@@ -1,5 +1,7 @@
 ```bash
 mkdir ~/.config/rpaper
+touch ~/.config/rpaper/color_variables.json
+touch ~/.config/rpaper/templates.json
 mkdir ~/.cache/rpaper
 mkdir ~/.cache/rpaper/Wallpapers
 cp config.json ~/~/.config/rpaper/config.json

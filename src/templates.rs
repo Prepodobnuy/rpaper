@@ -11,7 +11,7 @@ pub struct Template {
 
 pub fn get_templates(data: &Value) -> Vec<Template> {
     let mut res: Vec<Template> = Vec::new();
-    for raw_template in data["templates"].as_array().unwrap() {
+    for raw_template in data.as_array().unwrap() {
         res.push(Template {
             temp_path: String::from(raw_template["template_path"].as_str().unwrap()),
             conf_path: String::from(raw_template["config_path"].as_str().unwrap()),
