@@ -30,6 +30,7 @@ fn get_wal_colors(path: &str) -> Vec<String> {
     return res;
 }
 
+fn spawn(command: String) { Command::new("bash").args(["-c", &command]).spawn().expect("Err"); }
 fn start(command: String) -> Result<(), Box<dyn Error>> {
     let mut child = Command::new("bash")
         .args(["-c", &command])
@@ -89,7 +90,7 @@ fn set_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wal
         let path = format!("{}/{}", cached_wallpapers_path, cached_wallpaper_names[i]);
         let command = format!("swww img {} {} -o {}", path, args, displays[i].name);
         if Path::new(&path).exists() {
-            let _ = start(command);
+            spawn(command);
         }
     }
 }
@@ -139,7 +140,7 @@ fn apply_templates(templates: Vec<templates::Template>, variables: Vec<colorvari
         } 
         let mut file = File::create(template.conf_path).expect("Failed to create file");
         file.write_all(data.as_bytes()).expect("Failed to write to file");
-        let _ = start(template.command);
+        spawn(template.command);
     }
 }
 
