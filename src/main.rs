@@ -13,9 +13,10 @@ use serde_json::Value;
 mod displays;
 mod templates;
 mod colorvariables;
+mod config;
 
 
-fn get_wal_colors(path: &str) -> Vec<String> {
+fn get_wal_colors(path: PathBuf) -> Vec<String> {
     let mut file = File::open(path).unwrap();
     let mut data = String::new(); 
     file.read_to_string(&mut data).unwrap();
@@ -63,7 +64,7 @@ fn get_cached_wallpaper_names(displays: &Vec<displays::Display>, image_name: &st
     return res;
 }
 
-fn cache_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &str) {
+fn cache_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &PathBuf) {
     println!("caching");
     let image_name: &str = get_image_name(image_path);
     let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, image_name);
@@ -71,7 +72,7 @@ fn cache_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_w
     let mut cache_is_needed: bool = false;
 
     for cached_wallpaper_name in &cached_wallpaper_names {
-        let path = format!("{}/{}", cached_wallpapers_path, cached_wallpaper_name);
+        let path = format!("{}/{}", cached_wallpapers_path.display(), cached_wallpaper_name);
         if !Path::new(&path).exists() {
             cache_is_needed = true;
         }
@@ -82,15 +83,15 @@ fn cache_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_w
     let _ = start(command);
 }
 
-fn set_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &str, args: &str) {
+fn set_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &PathBuf, command: &str) {
     let image_name: &str = get_image_name(image_path);
     let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, image_name);
 
     for i in 0..displays.len() {
-        let path = format!("{}/{}", cached_wallpapers_path, cached_wallpaper_names[i]);
-        let command = format!("swww img {} {} -o {}", path, args, displays[i].name);
+        let path = format!("{}/{}", cached_wallpapers_path.display(), cached_wallpaper_names[i]);
+        let rcommand = config::parse_command(command, &path);
         if Path::new(&path).exists() {
-            spawn(command);
+            spawn(rcommand);
         }
     }
 }
@@ -112,7 +113,7 @@ fn process_color(color: u8, brightness: i32) -> String {
     return  hex;
 }
 
-fn apply_templates(templates: Vec<templates::Template>, variables: Vec<colorvariables::ColorVariable>, wal_color_path: &str) {
+fn apply_templates(templates: Vec<templates::Template>, variables: Vec<colorvariables::ColorVariable>, wal_color_path: PathBuf) {
     let colors = get_wal_colors(wal_color_path);
 
     for template in templates {
@@ -164,68 +165,32 @@ fn read_data(data_path: PathBuf) -> Value {
     return data;
 }
 
-struct Config {
-    templates_path: String,
-    colorvars_path: String,
-    displays: Vec<displays::Display>,
-    cached_wallpapers_path: String,
-    raw_swww_args: String,
-    raw_wal_args: String,
-    wal_path: String,
-    use_pywal: bool,
-    apply_templates: bool,
-}
-
-fn add_home_path_to_string(path: &str) -> PathBuf {
-    let home_dir = match env::var_os("HOME") {
-        Some(dir) => PathBuf::from(dir),
-        _none => {
-            eprintln!("Error: HOME environment variable is not set.");
-            std::process::exit(1);
-        }
-    };
-
-    let res: PathBuf = home_dir.join(path);
-    return res;
-}
-
 fn main() {
-    let config_path: PathBuf = add_home_path_to_string(".config/rpaper/config.json");
+    let config_path: PathBuf = config::parse_path("~/.config/rpaper/config.json");
 
     //todo argparser
-
+    
+    let image_path: String = get_image_path();
     let config_data: Value = read_data(config_path);
 
-    let config: Config = Config {
-        templates_path: String::from(config_data["templates_path"].as_str().unwrap()),
-        colorvars_path: String::from(config_data["variables_path"].as_str().unwrap()),
-        displays: displays::get_displays(&config_data),
-        cached_wallpapers_path: String::from(config_data["cached_wallpapers_dir"].as_str().unwrap()),
-        raw_swww_args: String::from(config_data["swww_params"].as_str().unwrap()),
-        raw_wal_args: String::from(config_data["wal_params"].as_str().unwrap()),
-        wal_path: String::from(config_data["wal_cache"].as_str().unwrap()),
-        use_pywal: config_data["use_pywal"].as_bool().unwrap(),
-        apply_templates: config_data["apply_templates"].as_bool().unwrap(),
-        };
+    let config: config::Config = config::get_config(&config_data, &image_path);
 
-    let image_path: &str = &get_image_path();
+    let displays = displays::get_displays(&config_data);
 
-    let wal_args = format!("python -m pywal {} -i {}", config.raw_wal_args, image_path);
-
-    if config.use_pywal { 
-        let _ = start(wal_args); 
+    if config.change_colorscheme { 
+        let _ = start(config.change_colors_command); 
     }
     if config.apply_templates { 
-        let templates_data: Value = read_data(add_home_path_to_string(&config.templates_path));
-        let variables_data: Value = read_data(add_home_path_to_string(&config.colorvars_path));
+        let templates_data: Value = read_data(config.templates_path);
+        let variables_data: Value = read_data(config.colorvars_path);
         
         let templates = templates::get_templates(&templates_data);
         let variables = colorvariables::get_color_variables(&variables_data);
         
-        apply_templates(templates, variables, &config.wal_path);
+        apply_templates(templates, variables, config.color_scheme_file);
     }
     
-    cache_wallpaper(image_path, &config.displays, &config.cached_wallpapers_path);
-    set_wallpaper(image_path, &config.displays, &config.cached_wallpapers_path, &config.raw_swww_args);
+    cache_wallpaper(&image_path, &displays, &config.cached_wallpapers_path);
+    set_wallpaper(&image_path, &displays, &config.cached_wallpapers_path, &config.set_wallpaper_command);
     exit(0);
 }

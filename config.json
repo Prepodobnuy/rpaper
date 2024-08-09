@@ -5,7 +5,7 @@
       "width": 1920,
       "height": 1080,
       "margin-left": 1080,
-      "margin-top": 273
+      "margin-top": 285
     },
     {
       "name": "DP-1",
@@ -15,13 +15,12 @@
       "margin-top": 0
     }
   ],
-  "templates_path": ".config/rpaper/templates.json",
-  "variables_path": ".config/rpaper/color_variables.json",
-  "swww_params": "--transition-fps 165 --transition-step 10 --transition-duration 2 -f Nearest -t any",
-  "wal_params": "-n -e -q --backend colorz",
-  "wallpapers_dir": "/home/prepodobnuy/Documents/Wallpapers",
-  "cached_wallpapers_dir": "/home/prepodobnuy/.cache/rpaper/Wallpapers",
-  "wal_cache": "/home/prepodobnuy/.cache/wal/colors",
-  "use_pywal": true,
+  "templates_path": "~/.config/rpaper/templates.json",
+  "variables_path": "~/.config/rpaper/color_variables.json",
+  "cached_wallpapers_dir": "~/.cache/rpaper/Wallpapers",
+  "color_scheme_file": "~/.cache/wal/colors",
+  "set_wallpaper_command": "swww img {image} --transition-fps 165 --transition-step 10 --transition-duration 2 -f Nearest -t any",
+  "change_color_scheme_command": "python -m pywal -i {image} -n -e -q --backend colorz",
+  "change_colorscheme": true,
   "apply_templates": true
 }
