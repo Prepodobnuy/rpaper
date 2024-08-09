@@ -1,5 +1,6 @@
 use std::env;
 use std::process::Command;
+use std::process::exit;
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;
@@ -29,7 +30,6 @@ fn get_wal_colors(path: &str) -> Vec<String> {
     return res;
 }
 
-fn spawn(command: String) { Command::new("bash").args(["-c", &command]).spawn().expect("Err"); }
 fn start(command: String) -> Result<(), Box<dyn Error>> {
     let mut child = Command::new("bash")
         .args(["-c", &command])
@@ -139,7 +139,7 @@ fn apply_templates(templates: Vec<templates::Template>, variables: Vec<colorvari
         } 
         let mut file = File::create(template.conf_path).expect("Failed to create file");
         file.write_all(data.as_bytes()).expect("Failed to write to file");
-        spawn(template.command);
+        let _ = start(template.command);
     }
 }
 
@@ -226,4 +226,5 @@ fn main() {
     
     cache_wallpaper(image_path, &config.displays, &config.cached_wallpapers_path);
     set_wallpaper(image_path, &config.displays, &config.cached_wallpapers_path, &config.raw_swww_args);
+    exit(0);
 }
