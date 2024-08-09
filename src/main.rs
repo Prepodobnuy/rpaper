@@ -89,7 +89,7 @@ fn set_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wal
 
     for i in 0..displays.len() {
         let path = format!("{}/{}", cached_wallpapers_path.display(), cached_wallpaper_names[i]);
-        let rcommand = config::parse_command(command, &path);
+        let rcommand = config::parse_command(command, &path, &displays[i].name);
         if Path::new(&path).exists() {
             spawn(rcommand);
         }

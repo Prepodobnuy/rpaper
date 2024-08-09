@@ -33,8 +33,8 @@ pub fn parse_path(path: &str) -> PathBuf {
     return PathBuf::from(path);
 }
 
-pub fn parse_command(command: &str, image_path: &str) -> String {
-    return command.replace("{image}", image_path);
+pub fn parse_command(command: &str, image_path: &str, display: &str) -> String {
+    return command.replace("{image}", image_path).replace("{display}", display);
 }
 
 pub fn get_config(config_data: &Value, image_path: &String) -> Config {
@@ -44,7 +44,7 @@ pub fn get_config(config_data: &Value, image_path: &String) -> Config {
     let color_scheme_file = parse_path(config_data["color_scheme_file"].as_str().unwrap());
     
     let set_wallpaper_command = String::from(config_data["set_wallpaper_command"].as_str().unwrap());
-    let change_color_scheme_command = parse_command(config_data["change_color_scheme_command"].as_str().unwrap(), &image_path);
+    let change_color_scheme_command = parse_command(config_data["change_color_scheme_command"].as_str().unwrap(), &image_path, "");
 
     let config: Config = Config {
         // Path
