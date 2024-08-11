@@ -145,16 +145,6 @@ fn apply_templates(templates: Vec<templates::Template>, variables: Vec<colorvari
     }
 }
 
-fn get_image_path() -> String {
-    let args: Vec<String> = env::args().collect();
-    let image_path: String = String::from(&args[1]);
-
-    let current_dir = std::env::current_dir().unwrap();
-    let absolute_path = current_dir.join(image_path).to_string_lossy().to_string();
-    
-    return absolute_path;
-}
-
 fn read_data(data_path: PathBuf) -> Value {
     let mut file = File::open(data_path).unwrap();
     let mut json_data = String::new();
@@ -165,16 +155,37 @@ fn read_data(data_path: PathBuf) -> Value {
     return data;
 }
 
-fn main() {
-    let config_path: PathBuf = config::parse_path("~/.config/rpaper/config.json");
+fn parse_args(default_config_path: PathBuf) -> (PathBuf, String) {
+    let args: Vec<String> = env::args().collect();
 
-    //todo argparser
+    if args.len() == 1 {exit(1)}
+
+    let mut image_path = String::from(&args[1]);
+    let current_dir = std::env::current_dir().unwrap();
+    image_path = current_dir.join(image_path).to_string_lossy().to_string();
     
-    let image_path: String = get_image_path();
+    let mut config_path = default_config_path;
+
+    for (i, param) in args.iter().enumerate() {
+        match param.as_str() {
+            "-c" | "--conf" => {
+                config_path = config::parse_path(&args[i+1])
+            },
+            _ => {}
+        }
+    }
+
+    return (config_path, image_path);
+}
+
+fn main() {
+    let mut config_path: PathBuf = config::parse_path("~/.config/rpaper/config.json");
+    let image_path: String;
+
+    (config_path, image_path) = parse_args(config_path);
+
     let config_data: Value = read_data(config_path);
-
     let config: config::Config = config::get_config(&config_data, &image_path);
-
     let displays = displays::get_displays(&config_data);
 
     if config.change_colorscheme { 
@@ -189,8 +200,11 @@ fn main() {
         
         apply_templates(templates, variables, config.color_scheme_file);
     }
-    
-    cache_wallpaper(&image_path, &displays, &config.cached_wallpapers_path);
-    set_wallpaper(&image_path, &displays, &config.cached_wallpapers_path, &config.set_wallpaper_command);
+    if config.cache_wallpaper {
+        cache_wallpaper(&image_path, &displays, &config.cached_wallpapers_path);
+        if config.set_wallpaper {
+            set_wallpaper(&image_path, &displays, &config.cached_wallpapers_path, &config.set_wallpaper_command);
+        }
+    }
     exit(0);
 }
