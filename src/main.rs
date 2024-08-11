@@ -7,6 +7,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 use std::error::Error;
+use std::thread;
 
 use serde_json::Value;
 
@@ -32,7 +33,7 @@ fn get_wal_colors(path: PathBuf) -> Vec<String> {
 }
 
 fn spawn(command: String) { Command::new("bash").args(["-c", &command]).spawn().expect("Err"); }
-fn start(command: String) -> Result<(), Box<dyn Error>> {
+fn start(command: &str) -> Result<(), Box<dyn Error>> {
     let mut child = Command::new("bash")
         .args(["-c", &command])
         .spawn()?;
@@ -64,23 +65,34 @@ fn get_cached_wallpaper_names(displays: &Vec<displays::Display>, image_name: &st
     return res;
 }
 
-fn cache_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &PathBuf) {
+fn cache_wallpaper(image_path: &str, displays: Vec<displays::Display>, cached_wallpapers_path: &PathBuf) -> Vec<displays::Display> {
     println!("caching");
     let image_name: &str = get_image_name(image_path);
     let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, image_name);
 
-    let mut cache_is_needed: bool = false;
+    let displays_max_width: u32 = displays::max_width(&displays);
+    let displays_max_height: u32 = displays::max_height(&displays);
 
-    for cached_wallpaper_name in &cached_wallpaper_names {
+    let mut threads = Vec::new();
+
+    for (i, cached_wallpaper_name) in cached_wallpaper_names.iter().enumerate() {
         let path = format!("{}/{}", cached_wallpapers_path.display(), cached_wallpaper_name);
+
         if !Path::new(&path).exists() {
-            cache_is_needed = true;
+            println!("path not exist");
+            let image_path = String::from(image_path);
+            let display = displays[i].clone();
+            let thread = thread::spawn(move || {
+                let command = format!("rpaper_cache {} {} {} {} {} {} {} {}", image_path, displays_max_width, displays_max_height, display.width, display.height, display.margin_left, display.margin_top, display.name);
+                let _ = start(&command);
+            });
+            threads.push(thread);
         }
     }
-
-    if !cache_is_needed { return }
-    let command = format!("rpaper_cache {}", image_path);
-    let _ = start(command);
+    for thread in threads {
+        thread.join().unwrap();
+    }
+    return displays;
 }
 
 fn set_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &PathBuf, command: &str) {
@@ -186,10 +198,10 @@ fn main() {
 
     let config_data: Value = read_data(config_path);
     let config: config::Config = config::get_config(&config_data, &image_path);
-    let displays = displays::get_displays(&config_data);
+    let mut displays = displays::get_displays(&config_data);
 
     if config.change_colorscheme { 
-        let _ = start(config.change_colors_command); 
+        let _ = start(&config.change_colors_command); 
     }
     if config.apply_templates { 
         let templates_data: Value = read_data(config.templates_path);
@@ -201,7 +213,7 @@ fn main() {
         apply_templates(templates, variables, config.color_scheme_file);
     }
     if config.cache_wallpaper {
-        cache_wallpaper(&image_path, &displays, &config.cached_wallpapers_path);
+        displays = cache_wallpaper(&image_path, displays, &config.cached_wallpapers_path);
         if config.set_wallpaper {
             set_wallpaper(&image_path, &displays, &config.cached_wallpapers_path, &config.set_wallpaper_command);
         }

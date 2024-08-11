@@ -8,6 +8,18 @@ pub struct Display {
     pub name: String,
 }
 
+impl Display {
+    pub fn clone(&self) -> Self {
+        Display {
+            width: self.width,
+            height: self.height,
+            margin_left: self.margin_left,
+            margin_top: self.margin_top,
+            name: self.name.clone(),
+        }
+    }
+}
+
 pub fn get_displays(data: &Value) -> Vec<Display> {
     let mut displays: Vec<Display> = Vec::new();
     for raw_display in data["displays"].as_array().unwrap() {
@@ -20,4 +32,26 @@ pub fn get_displays(data: &Value) -> Vec<Display> {
         })
     }
     return displays;
+}
+
+pub fn max_width(displays:&Vec<Display>) -> u32 {
+    let mut res: u32 = 0;
+    for display in displays {
+        if display.width + display.margin_left > res {
+            res = display.width + display.margin_left
+        }
+    }
+
+    return res;
+}
+
+pub fn max_height(displays:&Vec<Display>) -> u32 {
+    let mut res: u32 = 0;
+    for display in displays {
+        if display.height + display.margin_top > res {
+            res = display.height + display.margin_top
+        }
+    }
+
+    return res;
 }
