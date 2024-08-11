@@ -22,5 +22,5 @@
   "set_wallpaper_command": "swww img {image} -o {display} --transition-fps 165 --transition-step 10 --transition-duration 2 -f Nearest -t any",
   "change_color_scheme_command": "python -m pywal -i {image} -n -e -q --backend colorz",
   "change_colorscheme": true,
-  "apply_templates": true
+  "apply_templates": false
 }
