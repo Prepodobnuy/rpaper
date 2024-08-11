@@ -11,6 +11,8 @@ pub struct Config {
     pub change_colors_command: String,
     pub change_colorscheme: bool,
     pub apply_templates: bool,
+    pub cache_wallpaper: bool,
+    pub set_wallpaper: bool,
 }
 
 fn add_home_path_to_string(path: &str) -> PathBuf {
@@ -58,6 +60,8 @@ pub fn get_config(config_data: &Value, image_path: &String) -> Config {
         // Booleans
         change_colorscheme: config_data["change_colorscheme"].as_bool().unwrap(),
         apply_templates: config_data["apply_templates"].as_bool().unwrap(),
+        cache_wallpaper: config_data["cache_wallpaper"].as_bool().unwrap(),
+        set_wallpaper: config_data["set_wallpaper"].as_bool().unwrap(),
         };
     return config;
 }
