@@ -19,10 +19,11 @@
   "variables_path": "~/.config/rpaper/color_variables.json",
   "cached_wallpapers_dir": "~/.cache/rpaper/Wallpapers",
   "color_scheme_file": "~/.cache/wal/colors",
-  "set_wallpaper_command": "swww img {image} -o {display} --transition-fps 165 --transition-step 10 --transition-duration 2 -f Nearest -t any",
-  "change_color_scheme_command": "python -m pywal -i {image} -n -e -q --backend colorz",
+  "set_wallpaper_command": "swaybg -o {display} -i {image}",
+  "wallpaper_resize_backend": "Lanczos3",
+  "change_color_scheme_command": "python -m pywal -i {image} -n -e -q -t -s -e --backend colorz",
   "change_colorscheme": true,
-  "apply_templates": false,
-  "cache_wallpaper": false,
-  "set_wallpaper": false
+  "apply_templates": true,
+  "cache_wallpaper": true,
+  "set_wallpaper": true
 }
