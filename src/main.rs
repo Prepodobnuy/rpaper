@@ -82,8 +82,7 @@ fn get_image_name(image_path: &str) -> String {
     return String::from(image_path);
 }
 
-fn cache_wallpaper(image_path: &str, displays: Vec<displays::Display>, cached_wallpapers_path: &PathBuf) -> Vec<displays::Display> {
-    println!("caching");
+fn cache_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &PathBuf) {
     let image_name = get_image_name(image_path);
     let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, &image_name);
 
@@ -96,7 +95,7 @@ fn cache_wallpaper(image_path: &str, displays: Vec<displays::Display>, cached_wa
         let path = format!("{}/{}", cached_wallpapers_path.display(), cached_wallpaper_name);
 
         if !Path::new(&path).exists() {
-            println!("path not exist");
+            println!("caching {} to {}", image_name, displays[i].name);
             let img_path = String::from(image_path);
             let img_name = get_image_name(image_path);
             let display = displays[i].clone();
@@ -115,7 +114,6 @@ fn cache_wallpaper(image_path: &str, displays: Vec<displays::Display>, cached_wa
     for thread in threads {
         thread.join().unwrap();
     }
-    return displays;
 }
 
 fn set_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &PathBuf, command: &str) {
@@ -190,7 +188,7 @@ fn read_data(data_path: PathBuf) -> Value {
     return data;
 }
 
-fn parse_args(default_config_path: PathBuf) -> (PathBuf, String) {
+fn parse_args(default_config_path: PathBuf) -> (PathBuf, String, bool) {
     let args: Vec<String> = env::args().collect();
 
     if args.len() == 1 {exit(1)}
@@ -199,6 +197,8 @@ fn parse_args(default_config_path: PathBuf) -> (PathBuf, String) {
     let current_dir = std::env::current_dir().unwrap();
     image_path = current_dir.join(image_path).to_string_lossy().to_string();
     
+    let mut cache_only: bool = false;
+
     let mut config_path = default_config_path;
 
     for (i, param) in args.iter().enumerate() {
@@ -206,22 +206,31 @@ fn parse_args(default_config_path: PathBuf) -> (PathBuf, String) {
             "-c" | "--conf" => {
                 config_path = config::parse_path(&args[i+1])
             },
+            "--cache-only" => {
+                cache_only = true
+            }
             _ => {}
         }
     }
 
-    return (config_path, image_path);
+    return (config_path, image_path, cache_only);
 }
 
 fn main() {
     let mut config_path: PathBuf = config::parse_path("~/.config/rpaper/config.json");
     let image_path: String;
+    let cache_only: bool;
 
-    (config_path, image_path) = parse_args(config_path);
+    (config_path, image_path, cache_only) = parse_args(config_path);
 
     let config_data: Value = read_data(config_path);
     let config: config::Config = config::get_config(&config_data, &image_path);
-    let mut displays = displays::get_displays(&config_data);
+    let displays = displays::get_displays(&config_data);
+
+    if cache_only {
+        cache_wallpaper(&image_path, &displays, &config.cached_wallpapers_path);
+        return;
+    }
 
     if config.change_colorscheme { 
         let _ = start(&config.change_colors_command); 
@@ -236,7 +245,7 @@ fn main() {
         apply_templates(templates, variables, config.color_scheme_file);
     }
     if config.cache_wallpaper {
-        displays = cache_wallpaper(&image_path, displays, &config.cached_wallpapers_path);
+        cache_wallpaper(&image_path, &displays, &config.cached_wallpapers_path);
         if config.set_wallpaper {
             set_wallpaper(&image_path, &displays, &config.cached_wallpapers_path, &config.set_wallpaper_command);
         }
