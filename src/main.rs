@@ -8,7 +8,8 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::error::Error;
 use std::thread;
-
+use image;
+use image::imageops::FilterType::Triangle;
 use serde_json::Value;
 
 mod displays;
@@ -47,16 +48,6 @@ fn start(command: &str) -> Result<(), Box<dyn Error>> {
     }
 }
 
-fn get_image_name(image_path: &str) -> &str {
-    let path = Path::new(image_path);
-    if let Some(file_name) = path.file_name() {
-        if let Some(name) = file_name.to_str() {
-            return name;
-        }
-    }
-    return image_path;
-}
-
 fn get_cached_wallpaper_names(displays: &Vec<displays::Display>, image_name: &str) -> Vec<String> {
     let mut res: Vec<String> = Vec::new();
     for display in displays {
@@ -65,10 +56,36 @@ fn get_cached_wallpaper_names(displays: &Vec<displays::Display>, image_name: &st
     return res;
 }
 
+fn calculate_width_height(image_width: u32, image_height: u32, max_width: u32, max_height: u32) -> (u32, u32) {
+    let w_diff: f32 = max_width as f32 / image_width as f32;
+
+    let mut width: f32 =  image_width as f32 * w_diff;
+    let mut height: f32 = image_height as f32 * w_diff;
+
+    let h_diff: f32 = max_height as f32 / height as f32;
+
+    if h_diff > 1.0 {
+        width = width * h_diff;
+        height = height * h_diff;
+    }
+
+    return (width as u32, height as u32);
+}
+
+fn get_image_name(image_path: &str) -> String {
+    let path = Path::new(image_path);
+    if let Some(file_name) = path.file_name() {
+        if let Some(name) = file_name.to_str() {
+            return String::from(name);
+        }
+    }
+    return String::from(image_path);
+}
+
 fn cache_wallpaper(image_path: &str, displays: Vec<displays::Display>, cached_wallpapers_path: &PathBuf) -> Vec<displays::Display> {
     println!("caching");
-    let image_name: &str = get_image_name(image_path);
-    let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, image_name);
+    let image_name = get_image_name(image_path);
+    let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, &image_name);
 
     let displays_max_width: u32 = displays::max_width(&displays);
     let displays_max_height: u32 = displays::max_height(&displays);
@@ -80,11 +97,17 @@ fn cache_wallpaper(image_path: &str, displays: Vec<displays::Display>, cached_wa
 
         if !Path::new(&path).exists() {
             println!("path not exist");
-            let image_path = String::from(image_path);
+            let img_path = String::from(image_path);
+            let img_name = get_image_name(image_path);
             let display = displays[i].clone();
             let thread = thread::spawn(move || {
-                let command = format!("rpaper_cache {} {} {} {} {} {} {} {}", image_path, displays_max_width, displays_max_height, display.width, display.height, display.margin_left, display.margin_top, display.name);
-                let _ = start(&command);
+                let mut img = image::open(img_path).unwrap();
+                
+                let (nw, nh) = calculate_width_height(img.width(), img.height(), displays_max_width, displays_max_height);
+                
+                img = img.resize(nw, nh, Triangle);
+                img = img.crop_imm(display.margin_left, display.margin_top, display.width, display.height);
+                let _ = img.save(config::parse_path(&format!("~/.cache/rpaper/Wallpapers/{}.{}.{}.{}.{}-{}", display.name, display.width, display.height, display.margin_left, display.margin_top, img_name)));
             });
             threads.push(thread);
         }
@@ -96,8 +119,8 @@ fn cache_wallpaper(image_path: &str, displays: Vec<displays::Display>, cached_wa
 }
 
 fn set_wallpaper(image_path: &str, displays: &Vec<displays::Display>, cached_wallpapers_path: &PathBuf, command: &str) {
-    let image_name: &str = get_image_name(image_path);
-    let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, image_name);
+    let image_name = get_image_name(image_path);
+    let cached_wallpaper_names: Vec<String> = get_cached_wallpaper_names(&displays, &image_name);
 
     for i in 0..displays.len() {
         let path = format!("{}/{}", cached_wallpapers_path.display(), cached_wallpaper_names[i]);
