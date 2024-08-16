@@ -1,6 +1,6 @@
 use serde_json::Value;
-use std::path::PathBuf;
 use std::env;
+use std::path::PathBuf;
 
 pub struct Config {
     pub templates_path: PathBuf,
@@ -36,7 +36,9 @@ pub fn parse_path(path: &str) -> PathBuf {
 }
 
 pub fn parse_command(command: &str, image_path: &str, display: &str) -> String {
-    return command.replace("{image}", image_path).replace("{display}", display);
+    return command
+        .replace("{image}", image_path)
+        .replace("{display}", display);
 }
 
 pub fn get_config(config_data: &Value, image_path: &String) -> Config {
@@ -44,9 +46,14 @@ pub fn get_config(config_data: &Value, image_path: &String) -> Config {
     let colorvars_path = parse_path(config_data["variables_path"].as_str().unwrap());
     let cached_wallpapers_path = parse_path(config_data["cached_wallpapers_dir"].as_str().unwrap());
     let color_scheme_file = parse_path(config_data["color_scheme_file"].as_str().unwrap());
-    
-    let set_wallpaper_command = String::from(config_data["set_wallpaper_command"].as_str().unwrap());
-    let change_color_scheme_command = parse_command(config_data["change_color_scheme_command"].as_str().unwrap(), &image_path, "");
+
+    let set_wallpaper_command =
+        String::from(config_data["set_wallpaper_command"].as_str().unwrap());
+    let change_color_scheme_command = parse_command(
+        config_data["change_color_scheme_command"].as_str().unwrap(),
+        &image_path,
+        "",
+    );
 
     let config: Config = Config {
         // Path
@@ -62,6 +69,6 @@ pub fn get_config(config_data: &Value, image_path: &String) -> Config {
         apply_templates: config_data["apply_templates"].as_bool().unwrap(),
         cache_wallpaper: config_data["cache_wallpaper"].as_bool().unwrap(),
         set_wallpaper: config_data["set_wallpaper"].as_bool().unwrap(),
-        };
+    };
     return config;
 }

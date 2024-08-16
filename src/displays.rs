@@ -34,7 +34,7 @@ pub fn get_displays(data: &Value) -> Vec<Display> {
     return displays;
 }
 
-pub fn max_width(displays:&Vec<Display>) -> u32 {
+pub fn max_width(displays: &Vec<Display>) -> u32 {
     let mut res: u32 = 0;
     for display in displays {
         if display.width + display.margin_left > res {
@@ -45,7 +45,7 @@ pub fn max_width(displays:&Vec<Display>) -> u32 {
     return res;
 }
 
-pub fn max_height(displays:&Vec<Display>) -> u32 {
+pub fn max_height(displays: &Vec<Display>) -> u32 {
     let mut res: u32 = 0;
     for display in displays {
         if display.height + display.margin_top > res {
