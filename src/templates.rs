@@ -1,7 +1,9 @@
+use std::thread;
 use serde_json::Value;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
+use std::clone::Clone;
 use crate::utils::spawn;
 
 pub struct Template {
@@ -13,6 +15,7 @@ pub struct Template {
     pub command: String,
 }
 
+#[derive(Clone)]
 pub struct ColorVariable {
     pub name: String,
     pub value: usize,
@@ -34,15 +37,15 @@ fn get_templates(data: Value) -> Vec<Template> {
     return res;
 }
 fn get_color_variables(data: Value) -> Vec<ColorVariable> {
-    let mut colors: Vec<ColorVariable> = Vec::new();
+    let mut variables: Vec<ColorVariable> = Vec::new();
     for raw_variable in data.as_array().unwrap() {
-        colors.push(ColorVariable {
+        variables.push(ColorVariable {
             name: String::from(raw_variable["name"].as_str().unwrap()),
             value: raw_variable["value"].as_u64().unwrap() as usize,
             brightness: raw_variable["brightness"].as_i64().unwrap() as i32,
         })
     }
-    return colors;
+    return variables;
 }
 
 fn process_color(color: u8, brightness: i32) -> String {
@@ -82,42 +85,48 @@ pub fn apply_templates(
     variables_value: Value,
     wal_color_path: String,
 ) {
-    let templates: Vec<Template> = get_templates(templates_value);
-    let variables: Vec<ColorVariable> = get_color_variables(variables_value);
     let colors = get_wal_colors(wal_color_path);
 
+    let templates: Vec<Template> = get_templates(templates_value);
+    let variables: Vec<ColorVariable> = get_color_variables(variables_value);
+
     for template in templates {
-        let mut file = File::open(template.temp_path).unwrap();
-        let mut data = String::new();
-        file.read_to_string(&mut data).unwrap();
-
-        for variable in &variables {
-            let value = &colors[variable.value][1..];
-            let br = variable.brightness;
-            let r: u8 = u8::from_str_radix(&value[0..2], 16).unwrap();
-            let g: u8 = u8::from_str_radix(&value[2..4], 16).unwrap();
-            let b: u8 = u8::from_str_radix(&value[4..6], 16).unwrap();
-
-            let mut color = format!(
-                "#{}{}{}{}",
-                process_color(r, br),
-                process_color(g, br),
-                process_color(b, br),
-                template.opacity
-            );
-
-            if !template.use_sharps {
-                color = String::from(&color[1..]);
+        let local_colors = colors.to_vec();
+        let local_variables = variables.to_vec();
+        thread::spawn(move || {
+            let mut file = File::open(template.temp_path).unwrap();
+            let mut data = String::new();
+            file.read_to_string(&mut data).unwrap();
+    
+    
+            for variable in &local_variables {
+                let value = &local_colors[variable.value][1..];
+                let br = variable.brightness;
+                let r: u8 = u8::from_str_radix(&value[0..2], 16).unwrap();
+                let g: u8 = u8::from_str_radix(&value[2..4], 16).unwrap();
+                let b: u8 = u8::from_str_radix(&value[4..6], 16).unwrap();
+    
+                let mut color = format!(
+                    "#{}{}{}{}",
+                    process_color(r, br),
+                    process_color(g, br),
+                    process_color(b, br),
+                    template.opacity
+                );
+    
+                if !template.use_sharps {
+                    color = String::from(&color[1..]);
+                }
+                if template.use_quotes {
+                    color = format!("{}{}{}", '"', color, '"');
+                }
+    
+                data = data.replace(&variable.name, &color);
             }
-            if template.use_quotes {
-                color = format!("{}{}{}", '"', color, '"');
-            }
-
-            data = data.replace(&variable.name, &color);
-        }
-        let mut file = File::create(template.conf_path).expect("Failed to create file");
-        file.write_all(data.as_bytes())
-            .expect("Failed to write to file");
-        spawn(template.command);
+            let mut file = File::create(template.conf_path).expect("Failed to create file");
+            file.write_all(data.as_bytes())
+                .expect("Failed to write to file");
+            spawn(template.command);
+        });
     }
 }
