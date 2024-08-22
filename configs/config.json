@@ -25,5 +25,15 @@
   "change_colorscheme": true,
   "apply_templates": true,
   "cache_wallpaper": true,
-  "set_wallpaper": true
+  "set_wallpaper": true,
+  "change_contrast": false,
+  "contrast": 100.1,
+  "change_brightness": false,
+  "brightness": 100,
+  "change_huerotate": false,
+  "huerotate": 200,
+  "change_blur": false,
+  "blur": 10.0,
+  "image_flip_h": false,
+  "image_flip_v": false
 }

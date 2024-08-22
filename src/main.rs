@@ -1,4 +1,5 @@
 use serde_json::Value;
+use wallpaper::get_cached_images_paths;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -11,23 +12,6 @@ mod wallpaper;
 mod utils;
 
 
-
-fn get_cached_images_paths(displays: &Vec<displays::Display>, image_name: &str, cached_wallpapers_path: &str) -> Vec<String> {
-    let mut res: Vec<String> = Vec::new();
-    for display in displays {
-        res.push(format!(
-            "{}/{}.{}.{}.{}.{}-{}",
-            cached_wallpapers_path,
-            display.name,
-            display.width,
-            display.height,
-            display.margin_left,
-            display.margin_top,
-            image_name
-        ));
-    }
-    return res;
-}
 
 fn get_image_name(image_path: &str) -> String {
     let path = Path::new(image_path);
@@ -61,11 +45,13 @@ fn main() {
     let config_data: Value = read_data(config_path);
     let config: config::Config = config::get_config(&config_data, &image_path);
     let displays = displays::get_displays(&config_data);
-    let cached_images_paths = get_cached_images_paths(&displays, &image_name, &config.cached_images_path);
-    let image_op = config.wallpaper_resize_backend;
+    let image_operations  = wallpaper::Image_operations::new(&config_data);
+    let cached_wallpapers_names = wallpaper::get_cached_images_names(&displays, &image_name, &image_operations);
+    let cached_wallpapers_paths = wallpaper::get_cached_images_paths(&cached_wallpapers_names, &config.cached_images_path);
+    let image_resize_algorithm = config.wallpaper_resize_backend; 
 
     if cache_only {
-        wallpaper::cache(&image_path, &image_name, &displays, &cached_images_paths, &image_op);
+        wallpaper::cache(&image_path, &image_name, &displays, &cached_wallpapers_paths, &cached_wallpapers_names, &image_resize_algorithm, &image_operations);
         return;
     }
 
@@ -79,11 +65,11 @@ fn main() {
         templates::apply_templates(templates_value, variables_value, config.color_scheme_file);
     }
     if config.cache_wallpaper {
-        wallpaper::cache(&image_path, &image_name, &displays, &cached_images_paths, &image_op);
+        wallpaper::cache(&image_path, &image_name, &displays, &cached_wallpapers_paths, &cached_wallpapers_names, &image_resize_algorithm, &image_operations);
         if config.set_wallpaper {
             wallpaper::set(
                 &displays,
-                &cached_images_paths,
+                &cached_wallpapers_paths,
                 &config.set_wallpaper_command,
             );
         }
