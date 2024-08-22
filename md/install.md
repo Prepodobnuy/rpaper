@@ -11,6 +11,8 @@ mkdir ~/.cache/rpaper/Wallpapers
 cargo install --path .
 chmod +X dist/rpaper_cache
 sudo mv ~/.cargo/bin/rpaper /usr/bin/rpaper
+mv rpaper.desktop ~/.local/share/applications/rpaper.desktop
+mv rpaper.png ~/.local/share/icons/rpaper.png
 cd ..
 rm -rf rpaper
 ```
