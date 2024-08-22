@@ -1,99 +1,24 @@
 [
-    {
-      "name": "(bg)",
-      "value": 0,
-      "brightness": 0,
-      "inverted": false
-    },
-    {
-      "name": "(bgl1)",
-      "value": 0,
-      "brightness": 10
-    },
-    {
-      "name": "(bgl2)",
-      "value": 0,
-      "brightness": 20
-    },
-    {
-      "name": "(bgl3)",
-      "value": 0,
-      "brightness": 30
-    },
-    {
-      "name": "(bgl4)",
-      "value": 0,
-      "brightness": 40
-    },
-    {
-      "name": "(bgl5)",
-      "value": 0,
-      "brightness": 50
-    },
-    {
-      "name": "(bgl6)",
-      "value": 0,
-      "brightness": 60
-    },
-    {
-      "name": "(bgd1)",
-      "value": 0,
-      "brightness": -10
-    },
-    {
-      "name": "(bgd2)",
-      "value": 0,
-      "brightness": -20
-    },
-    {
-      "name": "(bgd3)",
-      "value": 0,
-      "brightness": -30
-    },
-    {
-      "name": "(text)",
-      "value": 15,
-      "brightness": 0
-    },
-    {
-      "name": "(primary)",
-      "value": 6,
-      "brightness": 0
-    },
-    {
-      "name": "(primaryl1)",
-      "value": 6,
-      "brightness": 10
-    },
-    {
-      "name": "(primaryl2)",
-      "value": 6,
-      "brightness": 20
-    },
-    {
-      "name": "(primaryl3)",
-      "value": 6,
-      "brightness": 30
-    },
-    {
-      "name": "(primaryd1)",
-      "value": 6,
-      "brightness": -10
-    },
-    {
-      "name": "(primaryd2)",
-      "value": 6,
-      "brightness": -20
-    },
-    {
-      "name": "(primaryd3)",
-      "value": 6,
-      "brightness": -30
-    },
-    {
-      "name": "(secondarycolor)",
-      "value": 4,
-      "brightness": 0
-    }
-  ]
-  
+  {
+    "name": "(bg{br})",
+    "value": 0,
+    "brightness": 0,
+    "inverted": true
+  },
+  {
+    "name": "(text)",
+    "value": 15,
+    "brightness": 0,
+    "inverted": true
+  },
+  {
+    "name": "(primary{br})",
+    "value": 6,
+    "brightness": -40
+  },
+  {
+    "name": "(secondarycolor)",
+    "value": 4,
+    "brightness": 0
+  }
+]

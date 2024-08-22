@@ -80,11 +80,37 @@ fn get_templates(data: Value) -> Vec<Template> {
 fn get_color_variables(data: Value) -> Vec<ColorVariable> {
     let mut variables: Vec<ColorVariable> = Vec::new();
     for raw_variable in data.as_array().unwrap() {
+        let mut name = String::from(raw_variable["name"].as_str().unwrap());
+        let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
+        let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
+        let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
+        
+        if name.contains("{br}") {
+            let oldname = name;
+            name = oldname.replace("{br}", "");
+            for i in 1..11 {
+                variables.push(ColorVariable {
+                    name: oldname.replace("{br}", &format!("d{}", i)),
+                    value,
+                    brightness: brightness - i*10,
+                    inverted,
+                });
+            }
+            for i in 1..11 {
+                variables.push(ColorVariable {
+                    name: oldname.replace("{br}", &format!("l{}", i)),
+                    value,
+                    brightness: brightness + i*10,
+                    inverted,
+                });
+            }
+        }
+
         variables.push(ColorVariable {
-            name: String::from(raw_variable["name"].as_str().unwrap()),
-            value: raw_variable["value"].as_u64().unwrap_or(0) as usize,
-            brightness: raw_variable["brightness"].as_i64().unwrap_or(0) as i32,
-            inverted: raw_variable["inverted"].as_bool().unwrap_or(false),
+            name,
+            value, 
+            brightness,
+            inverted,
         })
     }
     return variables;
