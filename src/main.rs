@@ -38,27 +38,8 @@ fn main() {
         wallpaper::get_cached_images_names(&displays, &image_name, &image_operations);
     let cached_wallpapers_paths =
         wallpaper::get_cached_images_paths(&cached_wallpapers_names, &config.cached_images_path);
-    let image_resize_algorithm = config.wallpaper_resize_backend;
-    let image = wallpaper::get_image(
-        &image_path,
-        &image_operations,
-        &displays,
-        &image_resize_algorithm,
-    );
 
-    if cache_only {
-        wallpaper::cache(
-            &image,
-            &image_name,
-            &displays,
-            &cached_wallpapers_paths,
-            &cached_wallpapers_names,
-        );
-        return;
-    }
-
-    let rwal = rwal::Rwal::from_dynamic_image(
-        &image,
+    let rwal = rwal::Rwal::new(
         &utils::get_img_ops_affected_name(&image_name, &image_operations),
         &config.rwal_cache_dir,
         config.rwal_thumb,
@@ -66,9 +47,20 @@ fn main() {
         config.rwal_clamp_min_v,
         config.rwal_clamp_max_v,
     );
-    if config.change_colorscheme {
-        rwal.run();
-    };
+
+    if cache_only {
+        wallpaper::cache(
+            &image_path,
+            &image_name,
+            &image_operations,
+            &config.wallpaper_resize_backend,
+            &displays,
+            &cached_wallpapers_paths,
+            &rwal,
+            config.change_colorscheme,
+        );
+        return;
+    }
 
     if config.apply_templates {
         let templates_value: Value = read_data(config.templates_path);
@@ -79,11 +71,14 @@ fn main() {
 
     if config.cache_wallpaper {
         wallpaper::cache(
-            &image,
+            &image_path,
             &image_name,
+            &image_operations,
+            &config.wallpaper_resize_backend,
             &displays,
             &cached_wallpapers_paths,
-            &cached_wallpapers_names,
+            &rwal,
+            config.change_colorscheme,
         );
 
         if config.set_wallpaper {

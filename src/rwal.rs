@@ -20,7 +20,6 @@ enum Error {
 type PalletteReadResult<T, E> = Result<T, E>;
 
 pub struct Rwal {
-    image: DynamicImage,
     image_name: String,
     cache_dir: String,
     thumb_size: (u32, u32),
@@ -31,28 +30,6 @@ pub struct Rwal {
 
 impl Rwal {
     pub fn new(
-        image_path: &str,
-        image_name: &str,
-        cache_dir: &str,
-        thumb_size: (u32, u32),
-        accent_color: u32,
-        clamp_min_v: f32,
-        clamp_max_v: f32,
-    ) -> Self {
-        let image = image::open(image_path).unwrap();
-
-        Rwal {
-            image,
-            image_name: image_name.to_string(),
-            cache_dir: cache_dir.to_string(),
-            thumb_size,
-            accent_color,
-            clamp_min_v,
-            clamp_max_v,
-        }
-    }
-    pub fn from_dynamic_image(
-        image: &DynamicImage,
         image_name: &str,
         cache_dir: &str,
         thumb_size: (u32, u32),
@@ -61,7 +38,6 @@ impl Rwal {
         clamp_max_v: f32,
     ) -> Self {
         Rwal {
-            image: image.clone(),
             image_name: image_name.to_string(),
             cache_dir: cache_dir.to_string(),
             thumb_size,
@@ -111,13 +87,13 @@ impl Rwal {
         fs::write(&path, pallete).unwrap();
     }
 
-    pub fn run(&self) {
+    pub fn run(&self, image: &DynamicImage) {
         if self.is_cached() {
             let pallete = self.read_from_cache();
             self.write_to_colors_file(&pallete);
         } else {
             let pallete = get_pallete(
-                &self.image,
+                image,
                 self.thumb_size,
                 self.accent_color,
                 self.clamp_min_v,

@@ -28,6 +28,7 @@ fn calculate_width_height(
     return (width as u32, height as u32);
 }
 
+#[derive(Clone)]
 pub struct Image_operations {
     pub change_contrast: bool,
     pub change_brightness: bool,
@@ -68,22 +69,6 @@ impl Image_operations {
             brightness,
             huerotate,
             blur,
-        }
-    }
-
-    pub fn clone(&self) -> Image_operations {
-        Image_operations {
-            change_contrast: self.change_contrast,
-            change_brightness: self.change_brightness,
-            change_huerotate: self.change_huerotate,
-            change_blur: self.change_blur,
-            image_flip_h: self.image_flip_h,
-            image_flip_v: self.image_flip_v,
-            invert_image: self.invert_image,
-            contrast: self.contrast,
-            brightness: self.brightness,
-            huerotate: self.huerotate,
-            blur: self.blur,
         }
     }
 }
@@ -176,11 +161,14 @@ pub fn get_cached_images_paths(
 }
 
 pub fn cache(
-    _image: &DynamicImage,
+    image_path: &str,
     image_name: &str,
+    image_ops: &Image_operations,
+    image_resize_algorithm: &str,
     displays: &Vec<displays::Display>,
     cached_wallpapers_paths: &Vec<String>,
-    cached_wallpapers_names: &Vec<String>,
+    rwal: &Rwal,
+    change_color_cheme: bool,
 ) {
     let mut threads = Vec::new();
 
@@ -188,8 +176,11 @@ pub fn cache(
         if !Path::new(&path).exists() {
             println!("caching {} to {}", image_name, displays[i].name);
             let display = displays[i].clone();
-            let wallpaper_name = cached_wallpapers_names[i].clone();
-            let mut img = _image.clone();
+            let wallpaper_path = cached_wallpapers_paths[i].clone();
+            let mut img = get_image(image_path, image_ops, displays, image_resize_algorithm).clone();
+            if change_color_cheme {
+                rwal.run(&img);
+            }
             let thread = thread::spawn(move || {
                 img = img.crop_imm(
                     display.margin_left,
@@ -198,8 +189,8 @@ pub fn cache(
                     display.height,
                 );
                 let _ = img.save(parse_path(&format!(
-                    "~/.cache/rpaper/Wallpapers/{}",
-                    wallpaper_name
+                    "{}",
+                    wallpaper_path
                 )));
             });
             threads.push(thread);

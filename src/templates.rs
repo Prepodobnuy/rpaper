@@ -6,6 +6,7 @@ use std::io::Read;
 use std::io::Write;
 use std::thread;
 
+#[derive(Clone)]
 pub struct Template {
     pub temp_path: String,
     pub conf_path: String,

@@ -2,6 +2,7 @@ use serde_json::Value;
 
 use crate::utils::{parse_command, parse_path};
 
+#[derive(Clone)]
 pub struct Config {
     pub templates_path: String,
     pub colorvars_path: String,

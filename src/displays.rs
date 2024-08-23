@@ -1,23 +1,12 @@
 use serde_json::Value;
 
+#[derive(Clone)]
 pub struct Display {
     pub width: u32,
     pub height: u32,
     pub margin_left: u32,
     pub margin_top: u32,
     pub name: String,
-}
-
-impl Display {
-    pub fn clone(&self) -> Self {
-        Display {
-            width: self.width,
-            height: self.height,
-            margin_left: self.margin_left,
-            margin_top: self.margin_top,
-            name: self.name.clone(),
-        }
-    }
 }
 
 pub fn get_displays(data: &Value) -> Vec<Display> {
