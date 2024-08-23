@@ -1,5 +1,4 @@
 use serde_json::Value;
-use wallpaper::get_cached_images_paths;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -10,7 +9,7 @@ mod displays;
 mod templates;
 mod wallpaper;
 mod utils;
-
+mod rwal;
 
 
 fn get_image_name(image_path: &str) -> String {

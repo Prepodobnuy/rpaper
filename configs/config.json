@@ -34,6 +34,15 @@
   "huerotate": 200,
   "change_blur": false,
   "blur": 10.0,
-  "image_flip_h": false,
-  "image_flip_v": false
+  "image_flip_h": true,
+  "image_flip_v": false,
+
+  "rwal_cache_dir": "~/.cache/rpaper/rwal",
+  "rwal_chunk_size": 8,
+  "rwal_chunk_count": 8,
+  "rwal_dark_b": 10,
+  "rwal_darl_t": 40,
+  "rwal_light_b": 220,
+  "rwal_light_t": 255,
+  "rwal_wanted_color_sum": 390
 }
