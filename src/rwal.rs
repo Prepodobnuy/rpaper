@@ -81,7 +81,6 @@ impl Rwal {
 
     fn write_to_colors_file(&self, pallete: &str) {
         let path = format!("{}/colors", self.cache_dir);
-        println!("{}", path);
 
         fs::File::create(&path).unwrap();
         fs::write(&path, pallete).unwrap();

@@ -170,31 +170,42 @@ pub fn cache(
     rwal: &Rwal,
     change_color_cheme: bool,
 ) {
-    let mut threads = Vec::new();
+    let mut cache_needed = false;
 
     for (i, path) in cached_wallpapers_paths.iter().enumerate() {
         if !Path::new(&path).exists() {
-            println!("caching {} to {}", image_name, displays[i].name);
-            let display = displays[i].clone();
-            let wallpaper_path = cached_wallpapers_paths[i].clone();
-            let mut img = get_image(image_path, image_ops, displays, image_resize_algorithm).clone();
-            if change_color_cheme {
-                rwal.run(&img);
-            }
-            let thread = thread::spawn(move || {
-                img = img.crop_imm(
-                    display.margin_left,
-                    display.margin_top,
-                    display.width,
-                    display.height,
-                );
-                let _ = img.save(parse_path(&format!(
-                    "{}",
-                    wallpaper_path
-                )));
-            });
-            threads.push(thread);
+            cache_needed = true;
+            break;
         }
+    }
+
+    if !cache_needed {return;}
+
+    let img = get_image(image_path, image_ops, displays, image_resize_algorithm);
+    if change_color_cheme {
+        rwal.run(&img.clone());
+    }
+
+    let mut threads = Vec::new();
+    
+    for (i, path) in cached_wallpapers_paths.iter().enumerate() {
+        println!("caching {} to {}", image_name, displays[i].name);
+        let display = displays[i].clone();
+        let wallpaper_path = cached_wallpapers_paths[i].clone();
+        let mut img = img.clone();
+        let thread = thread::spawn(move || {
+            img = img.crop_imm(
+                display.margin_left,
+                display.margin_top,
+                display.width,
+                display.height,
+            );
+            let _ = img.save(parse_path(&format!(
+                "{}",
+                wallpaper_path
+            )));
+        });
+        threads.push(thread);
     }
     for thread in threads {
         thread.join().unwrap();
