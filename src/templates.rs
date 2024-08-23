@@ -1,10 +1,10 @@
-use std::thread;
+use crate::utils::spawn;
 use serde_json::Value;
+use std::clone::Clone;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
-use std::clone::Clone;
-use crate::utils::spawn;
+use std::thread;
 
 pub struct Template {
     pub temp_path: String,
@@ -28,27 +28,24 @@ impl ColorVariable {
         let mut res = String::new();
         if color as i32 + self.brightness >= 255 {
             res = String::from("FF");
-        }
-        else if color as i32 + self.brightness <= 0 {
+        } else if color as i32 + self.brightness <= 0 {
             res = String::from("00");
-        }
-        else {
+        } else {
             let mut tmp: i32 = color as i32 + self.brightness;
-            if self.inverted {tmp = 255 - tmp}
-            let hex = format!("{:X}", tmp);  
+            if self.inverted {
+                tmp = 255 - tmp
+            }
+            let hex = format!("{:X}", tmp);
 
             if hex.len() == 1 {
                 res = format!("0{}", hex);
-            } 
-            else {
+            } else {
                 res = format!("{}", hex);
             }
-
         }
 
         return res;
     }
-
 
     pub fn process_colors(&self, value: &str) -> String {
         let r: u8 = u8::from_str_radix(&value[0..2], 16).unwrap();
@@ -58,7 +55,7 @@ impl ColorVariable {
         let hex_r = self.process_color(r);
         let hex_g = self.process_color(g);
         let hex_b = self.process_color(b);
-        
+
         return format!("{}{}{}", hex_r, hex_g, hex_b);
     }
 }
@@ -84,7 +81,7 @@ fn get_color_variables(data: Value) -> Vec<ColorVariable> {
         let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
         let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
         let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
-        
+
         if name.contains("{br}") {
             let oldname = name;
             name = oldname.replace("{br}", "");
@@ -92,7 +89,7 @@ fn get_color_variables(data: Value) -> Vec<ColorVariable> {
                 variables.push(ColorVariable {
                     name: oldname.replace("{br}", &format!("d{}", i)),
                     value,
-                    brightness: brightness - i*10,
+                    brightness: brightness - i * 10,
                     inverted,
                 });
             }
@@ -100,7 +97,7 @@ fn get_color_variables(data: Value) -> Vec<ColorVariable> {
                 variables.push(ColorVariable {
                     name: oldname.replace("{br}", &format!("l{}", i)),
                     value,
-                    brightness: brightness + i*10,
+                    brightness: brightness + i * 10,
                     inverted,
                 });
             }
@@ -108,7 +105,7 @@ fn get_color_variables(data: Value) -> Vec<ColorVariable> {
 
         variables.push(ColorVariable {
             name,
-            value, 
+            value,
             brightness,
             inverted,
         })
@@ -116,7 +113,7 @@ fn get_color_variables(data: Value) -> Vec<ColorVariable> {
     return variables;
 }
 
-fn get_wal_colors(path: String) -> Vec<String> {
+fn get_colors_from_scheme(path: String) -> Vec<String> {
     let mut file = File::open(path).unwrap();
     let mut data = String::new();
     file.read_to_string(&mut data).unwrap();
@@ -131,12 +128,8 @@ fn get_wal_colors(path: String) -> Vec<String> {
     return res;
 }
 
-pub fn apply_templates(
-    templates_value: Value,
-    variables_value: Value,
-    wal_color_path: String,
-) {
-    let colors = get_wal_colors(wal_color_path);
+pub fn apply_templates(templates_value: Value, variables_value: Value, color_scheme_path: String) {
+    let colors = get_colors_from_scheme(color_scheme_path);
 
     let templates: Vec<Template> = get_templates(templates_value);
     let variables: Vec<ColorVariable> = get_color_variables(variables_value);
@@ -148,24 +141,19 @@ pub fn apply_templates(
             let mut file = File::open(template.temp_path).unwrap();
             let mut data = String::new();
             file.read_to_string(&mut data).unwrap();
-    
-    
+
             for variable in &local_variables {
                 let value = &local_colors[variable.value][1..];
-    
-                let mut color = format!(
-                    "#{}{}",
-                    variable.process_colors(&value),
-                    template.opacity
-                );
-    
+
+                let mut color = format!("#{}{}", variable.process_colors(&value), template.opacity);
+
                 if !template.use_sharps {
                     color = String::from(&color[1..]);
                 }
                 if template.use_quotes {
                     color = format!("{}{}{}", '"', color, '"');
                 }
-    
+
                 data = data.replace(&variable.name, &color);
             }
             let mut file = File::create(template.conf_path).expect("Failed to create file");

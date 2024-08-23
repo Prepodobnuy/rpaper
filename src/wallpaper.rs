@@ -1,10 +1,11 @@
-use std::thread;
-use std::path::Path;
-use image;
-use image::imageops::{Nearest, Triangle, CatmullRom, Gaussian, Lanczos3};
+use crate::displays::{self, Display};
+use crate::rwal::Rwal;
+use crate::utils::{get_img_ops_affected_name, parse_command, parse_path, spawn};
+use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
+use image::{self, DynamicImage};
 use serde_json::Value;
-use crate::displays;
-use crate::utils::{parse_path, parse_command, spawn};
+use std::path::Path;
+use std::thread;
 
 fn calculate_width_height(
     image_width: u32,
@@ -28,17 +29,18 @@ fn calculate_width_height(
 }
 
 pub struct Image_operations {
-    change_contrast: bool,
-    change_brightness: bool,
-    change_huerotate: bool,
-    change_blur: bool,
-    image_flip_h: bool,
-    image_flip_v: bool,
-    contrast: f32,
-    brightness: i32,
-    huerotate: i32,
-    blur: f32,
-} 
+    pub change_contrast: bool,
+    pub change_brightness: bool,
+    pub change_huerotate: bool,
+    pub change_blur: bool,
+    pub image_flip_h: bool,
+    pub image_flip_v: bool,
+    pub invert_image: bool,
+    pub contrast: f32,
+    pub brightness: i32,
+    pub huerotate: i32,
+    pub blur: f32,
+}
 
 impl Image_operations {
     pub fn new(config_data: &Value) -> Self {
@@ -48,6 +50,7 @@ impl Image_operations {
         let change_blur = config_data["change_blur"].as_bool().unwrap_or(false);
         let image_flip_h = config_data["image_flip_h"].as_bool().unwrap_or(false);
         let image_flip_v = config_data["image_flip_v"].as_bool().unwrap_or(false);
+        let invert_image = config_data["invert_image"].as_bool().unwrap_or(false);
         let contrast = config_data["contrast"].as_f64().unwrap_or(0.0) as f32;
         let brightness = config_data["brightness"].as_i64().unwrap_or(0) as i32;
         let huerotate = config_data["huerotate"].as_i64().unwrap_or(0) as i32;
@@ -60,6 +63,7 @@ impl Image_operations {
             change_blur,
             image_flip_h,
             image_flip_v,
+            invert_image,
             contrast,
             brightness,
             huerotate,
@@ -75,6 +79,7 @@ impl Image_operations {
             change_blur: self.change_blur,
             image_flip_h: self.image_flip_h,
             image_flip_v: self.image_flip_v,
+            invert_image: self.invert_image,
             contrast: self.contrast,
             brightness: self.brightness,
             huerotate: self.huerotate,
@@ -83,10 +88,68 @@ impl Image_operations {
     }
 }
 
-pub fn get_cached_images_names(displays: &Vec<displays::Display>, image_name: &str, image_ops: &Image_operations) -> Vec<String> {
+pub fn get_cache_name(image_name: &str, image_ops: &Image_operations) -> String {
+    get_img_ops_affected_name(image_name, image_ops)
+}
+
+pub fn get_image(
+    img_path: &str,
+    image_ops: &Image_operations,
+    displays: &Vec<Display>,
+    image_resize_algorithm: &str,
+) -> DynamicImage {
+    let displays_max_width: u32 = displays::max_width(&displays);
+    let displays_max_height: u32 = displays::max_height(&displays);
+
+    let img_ra = match image_resize_algorithm {
+        "Nearest" => Nearest,
+        "CatmullRom" => CatmullRom,
+        "Gaussian" => Gaussian,
+        "Lanczos3" => Lanczos3,
+        _ => Triangle,
+    };
+
+    let mut _image = image::open(img_path).unwrap();
+    let (nw, nh) = calculate_width_height(
+        _image.width(),
+        _image.height(),
+        displays_max_width,
+        displays_max_height,
+    );
+    _image = _image.resize(nw, nh, img_ra);
+    if image_ops.change_contrast {
+        _image = _image.adjust_contrast(image_ops.contrast)
+    }
+    if image_ops.change_brightness {
+        _image = _image.brighten(image_ops.brightness)
+    }
+    if image_ops.change_huerotate {
+        _image = _image.huerotate(image_ops.huerotate)
+    }
+    if image_ops.change_blur {
+        _image = _image.blur(image_ops.blur)
+    }
+    if image_ops.image_flip_h {
+        _image = _image.fliph()
+    }
+    if image_ops.image_flip_v {
+        _image = _image.flipv()
+    }
+    if image_ops.invert_image {
+        _image.invert()
+    }
+    _image
+}
+
+pub fn get_cached_images_names(
+    displays: &Vec<displays::Display>,
+    image_name: &str,
+    image_ops: &Image_operations,
+) -> Vec<String> {
     let mut res: Vec<String> = Vec::new();
     for display in displays {
-        let mut image_name = format!("{}.{}.{}.{}.{}-{}",
+        let mut image_name = format!(
+            "{}.{}.{}.{}.{}-{}",
             display.name,
             display.width,
             display.height,
@@ -94,20 +157,17 @@ pub fn get_cached_images_names(displays: &Vec<displays::Display>, image_name: &s
             display.margin_top,
             image_name
         );
-
-        if image_ops.change_contrast  {image_name = format!("CR{}{}", image_ops.contrast, image_name)}
-        if image_ops.change_brightness{image_name = format!("BR{}{}", image_ops.brightness, image_name)}
-        if image_ops.change_huerotate {image_name = format!("HUE{}{}", image_ops.huerotate, image_name)}
-        if image_ops.change_blur      {image_name = format!("BLUR{}{}", image_ops.blur, image_name)}
-        if image_ops.image_flip_h     {image_name = format!("H_FL{}", image_name)}
-        if image_ops.image_flip_v     {image_name = format!("V_FL{}", image_name)}
+        image_name = get_img_ops_affected_name(&image_name, image_ops);
 
         res.push(image_name);
     }
     return res;
 }
 
-pub fn get_cached_images_paths(cached_wallpapers_names: &Vec<String>, cached_wallpapers_path: &str) -> Vec<String> {
+pub fn get_cached_images_paths(
+    cached_wallpapers_names: &Vec<String>,
+    cached_wallpapers_path: &str,
+) -> Vec<String> {
     let mut res: Vec<String> = Vec::new();
     for w_name in cached_wallpapers_names {
         res.push(format!("{}/{}", cached_wallpapers_path, w_name));
@@ -116,53 +176,21 @@ pub fn get_cached_images_paths(cached_wallpapers_names: &Vec<String>, cached_wal
 }
 
 pub fn cache(
-    image_path: &str,
+    _image: &DynamicImage,
     image_name: &str,
     displays: &Vec<displays::Display>,
     cached_wallpapers_paths: &Vec<String>,
     cached_wallpapers_names: &Vec<String>,
-    image_resize_algorithm: &str,
-    image_ops: &Image_operations,
 ) {
-    let displays_max_width: u32 = displays::max_width(&displays);
-    let displays_max_height: u32 = displays::max_height(&displays);
-
     let mut threads = Vec::new();
 
     for (i, path) in cached_wallpapers_paths.iter().enumerate() {
-
         if !Path::new(&path).exists() {
             println!("caching {} to {}", image_name, displays[i].name);
-            let img_path = String::from(image_path);
-            let img_ra = match image_resize_algorithm {
-                "Nearest" => Nearest,
-                "CatmullRom" => CatmullRom,
-                "Gaussian" => Gaussian,
-                "Lanczos3" => Lanczos3,
-                _ => Triangle,
-            };
-            let img_ops = image_ops.clone();
             let display = displays[i].clone();
             let wallpaper_name = cached_wallpapers_names[i].clone();
+            let mut img = _image.clone();
             let thread = thread::spawn(move || {
-                let mut img = image::open(img_path).unwrap();
-
-                let (nw, nh) = calculate_width_height(
-                    img.width(),
-                    img.height(),
-                    displays_max_width,
-                    displays_max_height,
-                );
-
-                img = img.resize(nw, nh, img_ra);
-
-                if img_ops.change_contrast   {img = img.adjust_contrast(img_ops.contrast)}
-                if img_ops.change_brightness {img = img.brighten(img_ops.brightness)}
-                if img_ops.change_huerotate  {img = img.huerotate(img_ops.huerotate)}
-                if img_ops.change_blur       {img = img.blur(img_ops.blur)}
-                if img_ops.image_flip_h      {img = img.fliph()}
-                if img_ops.image_flip_v      {img = img.flipv()}
-
                 img = img.crop_imm(
                     display.margin_left,
                     display.margin_top,
@@ -182,12 +210,7 @@ pub fn cache(
     }
 }
 
-
-pub fn set(
-    displays: &Vec<displays::Display>,
-    cached_images_paths: &Vec<String>,
-    command: &str,
-) {
+pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>, command: &str) {
     for i in 0..displays.len() {
         let path = &cached_images_paths[i];
 

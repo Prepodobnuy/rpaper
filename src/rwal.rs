@@ -1,130 +1,16 @@
-use std::io::{Write, Read};
-use std::path::Path;
+use std::cmp::Ordering;
 use std::fs;
+use std::path::Path;
 
 use image;
-use image::DynamicImage;
 use image::imageops::Nearest;
-use image::GenericImageView;
+use image::DynamicImage;
 
-#[derive(Clone, Eq, PartialEq)]
-enum Color {
-    RGB(RGB),
-    HEX(HEX),
-}
+use kmeans_colors::{get_kmeans, Kmeans};
+use palette::cast::from_component_slice;
+use palette::{IntoColor, Lab, Srgb};
 
-#[derive(Clone, Eq, PartialEq)]
-struct RGB {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-#[derive(Clone, Eq, PartialEq)]
-struct HEX {
-    r: String,
-    g: String,
-    b: String,
-}
-
-impl Color {
-    fn to_hex(&self) -> Color {
-        match self {
-            Color::RGB(rgb) => Color::HEX(HEX {
-                r: format!("{:X}", rgb.r),
-                g: format!("{:X}", rgb.g),
-                b: format!("{:X}", rgb.b),
-            }),
-            Color::HEX(hex) => self.clone(),
-        }
-    }
-
-    fn to_rgb(&self) -> Color {
-        match self {
-            Color::RGB(rgb) => self.clone(),
-            Color::HEX(hex) => Color::RGB(RGB {
-                r: u8::from_str_radix(&hex.r, 16).unwrap(),
-                g: u8::from_str_radix(&hex.g, 16).unwrap(),
-                b: u8::from_str_radix(&hex.b, 16).unwrap(),
-            }),
-        }
-    }
-
-    fn to_string(&self) -> String {
-        match self {
-            Color::RGB(rgb) => {
-                return  format!("{} {} {}", rgb.r, rgb.g, rgb.b);
-            },
-            Color::HEX(hex) => {
-                let mut r = hex.r.clone();
-                let mut g = hex.g.clone();
-                let mut b = hex.b.clone();
-
-                if r.len() == 1 {r = format!("0{}", r); }
-                if g.len() == 1 {g = format!("0{}", g); }
-                if b.len() == 1 {b = format!("0{}", b); }
-                
-                return  format!("#{}{}{}", r, g, b);
-            }
-        }
-    }
-
-    fn new_rgb(r: u8, g: u8, b: u8) -> Self {
-        Color::RGB(RGB { r, g, b })
-    }
-
-    fn new_hex(r: &str, g: &str, b: &str) -> Self {
-        Color::HEX(HEX {
-            r: r.to_string(),
-            g: g.to_string(),
-            b: b.to_string(),
-        })
-    }
-
-    fn in_color_limit(&self, start: u8, end: u8) -> bool {
-        match self {
-            Color::RGB(rgb) => {
-                let r: u8 = rgb.r;
-                let g: u8 = rgb.g;
-                let b: u8 = rgb.b;
-
-                if r < start || r > end {return false;}
-                if g < start || g > end {return false;}
-                if b < start || b > end {return false;}
-                return true;
-            },
-            Color::HEX(hex) => {
-                let r = u8::from_str_radix(&hex.r, 16).unwrap();
-                let g = u8::from_str_radix(&hex.g, 16).unwrap();
-                let b = u8::from_str_radix(&hex.b, 16).unwrap();
-
-                if r < start || r > end {return false;}
-                if g < start || g > end {return false;}
-                if b < start || b > end {return false;}
-                return true;
-            }
-        }
-    }
-
-    fn color_sum(&self) -> u16 {
-        match self {
-            Color::RGB(rgb) => {
-                let r: u16 = rgb.r as u16;
-                let g: u16 = rgb.g as u16;
-                let b: u16 = rgb.b as u16;
-
-                return r + g + b;
-            },
-            Color::HEX(hex) => {
-                let r = u16::from_str_radix(&hex.r, 16).unwrap();
-                let g = u16::from_str_radix(&hex.g, 16).unwrap();
-                let b = u16::from_str_radix(&hex.b, 16).unwrap();
-
-                return r + g + b;
-            }
-        }
-    }
-}
+use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 
 #[derive(Debug)]
 enum Error {
@@ -137,27 +23,21 @@ pub struct Rwal {
     image: DynamicImage,
     image_name: String,
     cache_dir: String,
-    chunk_size: u32,
-    chunk_count: u32,
-    dark_b: u8,
-    darl_t: u8,
-    light_b: u8,
-    light_t: u8,
-    wanted_color_sum: u16,
+    thumb_size: (u32, u32),
+    accent_color: u32,
+    clamp_min_v: f32,
+    clamp_max_v: f32,
 }
 
 impl Rwal {
     pub fn new(
-        image_path: &str, 
+        image_path: &str,
         image_name: &str,
-        cache_dir: &str, 
-        chunk_size: u32, 
-        chunk_count: u32,
-        dark_b: u8,
-        darl_t: u8,
-        light_b: u8,
-        light_t: u8,
-        wanted_color_sum: u16,
+        cache_dir: &str,
+        thumb_size: (u32, u32),
+        accent_color: u32,
+        clamp_min_v: f32,
+        clamp_max_v: f32,
     ) -> Self {
         let image = image::open(image_path).unwrap();
 
@@ -165,168 +45,43 @@ impl Rwal {
             image,
             image_name: image_name.to_string(),
             cache_dir: cache_dir.to_string(),
-            chunk_size,
-            chunk_count,
-            dark_b,
-            darl_t,
-            light_b,
-            light_t,
-            wanted_color_sum,
+            thumb_size,
+            accent_color,
+            clamp_min_v,
+            clamp_max_v,
         }
     }
     pub fn from_dynamic_image(
-        image: &DynamicImage, 
+        image: &DynamicImage,
         image_name: &str,
-        cache_dir: &str, 
-        chunk_size: u32, 
-        chunk_count: u32,
-        dark_b: u8,
-        darl_t: u8,
-        light_b: u8,
-        light_t: u8,
-        wanted_color_sum: u16,
+        cache_dir: &str,
+        thumb_size: (u32, u32),
+        accent_color: u32,
+        clamp_min_v: f32,
+        clamp_max_v: f32,
     ) -> Self {
         Rwal {
             image: image.clone(),
             image_name: image_name.to_string(),
             cache_dir: cache_dir.to_string(),
-            chunk_size,
-            chunk_count,
-            dark_b,
-            darl_t,
-            light_b,
-            light_t,
-            wanted_color_sum,
+            thumb_size,
+            accent_color,
+            clamp_min_v,
+            clamp_max_v,
         }
     }
 
-    fn get_colors(
-        &self, 
-        dark_b: u8, 
-        darl_t: u8, 
-        light_b: u8, 
-        light_t: u8, 
-        wanted_color_sum: u16, 
-        chunk_size: u32, 
-        chunk_count: u32
-    ) -> (Vec<Color>, Color, Color) {
-    
-        let scaled_image = self.image.resize_exact(
-            chunk_size*chunk_count, 
-            chunk_size*chunk_count, 
-            Nearest
-        );
-        let mut colors: Vec<Color> = Vec::new();
-
-        for i in 0..chunk_count {
-            for j in 0..chunk_count {
-                let chunk_size = chunk_size;
-                let mut chunk = scaled_image.crop_imm(j*chunk_size, i*chunk_size, chunk_size, chunk_size);
-                chunk = chunk.resize_exact(1, 1, Nearest);
-                let pixel = chunk.get_pixel(0, 0);
-
-                colors.push(Color::new_rgb(pixel[0], pixel[1], pixel[2]));                  
-            }
-        }
-
-        let mut another_colors: Vec<Color> = Vec::new();
-
-        let mut l_dark_color: Color = Color::new_rgb(0, 0, 0);
-        let mut l_dark_color_sum: u16 = l_dark_color.color_sum();
-        let mut d_light_color: Color = Color::new_rgb(255, 255, 255);
-        let mut d_light_color_sum: u16 = d_light_color.color_sum();
-
-        for _color in &colors {
-            if _color.in_color_limit(dark_b, darl_t) {
-                let _color_sum = _color.color_sum();
-                if _color_sum > l_dark_color_sum {
-                    l_dark_color_sum = _color_sum;
-                    l_dark_color = _color.clone();
-                }
-            }
-            else if _color.in_color_limit(light_b, light_t) {
-                let _color_sum = _color.color_sum();
-                if _color_sum < d_light_color_sum {
-                    d_light_color_sum = _color_sum;
-                    d_light_color = _color.clone();
-                }
-            }
-            else if _color.in_color_limit(darl_t, light_b) {
-                let _color_sum = _color.color_sum();
-                if _color_sum <= wanted_color_sum {
-                    another_colors.push(_color.clone());
-                }
-            }
-        }
-
-        (another_colors, l_dark_color, d_light_color)
-    }
-
-
-    fn get_pallete(&self) -> PalletteReadResult<Vec<Color>, Error> {
-        let mut colors: Vec<Color> = Vec::new();
-        let mut dark_color: Color = Color::new_rgb(0, 0, 0);
-        let mut light_color: Color = Color::new_rgb(255, 255, 255);
-
-        let mut i = 0;
-        let max_iterations: usize = 10;
-
-        let dark_b = self.dark_b;
-        let darl_t = self.darl_t;
-        let light_b = self.light_b;
-        let light_t = self.light_t;
-        let wanted_color_sum = self.wanted_color_sum;
-        let chunk_size = self.chunk_size;
-        let mut chunk_count = self.chunk_count;
-
-        while i < max_iterations {
-            let (_colors, _dark_color, _light_color) = self.get_colors(
-                dark_b, 
-                darl_t, 
-                light_b, 
-                light_t, 
-                wanted_color_sum, 
-                chunk_size, 
-                chunk_count
-            );
-
-            i += 1;
-            
-            if _colors.len() < 6 {
-                chunk_count += 1;
-                continue;
-            } 
-            
-            colors = _colors;
-            dark_color = _dark_color;
-            light_color = _light_color;
-            break;
-        }
-        if i >= max_iterations {
-            return Err(Error::TooLarge);
-        }
-
-        colors.sort_by(|a, b| b.color_sum().cmp(&a.color_sum()));
-
-        if colors.len() >= 6 {
-            let pallete = vec![
-                dark_color, 
-                colors[0].clone(), 
-                colors[1].clone(), 
-                colors[2].clone(), 
-                colors[3].clone(), 
-                colors[4].clone(), 
-                colors[5].clone(), 
-                light_color
-                ];
-                return Ok(pallete);  
-        }
-
-        return Err(Error::TooLarge);
-    }
-
-    fn get_pallete_cache_path(&self) -> String {
-        format!("{}/{}", self.cache_dir, self.image_name)
+    pub fn get_pallete_cache_path(&self) -> String {
+        format!(
+            "{}/{}{}{}{}{}{}",
+            self.cache_dir,
+            self.image_name,
+            self.thumb_size.0,
+            self.thumb_size.1,
+            self.accent_color,
+            self.clamp_min_v,
+            self.clamp_max_v
+        )
     }
 
     fn is_cached(&self) -> bool {
@@ -348,22 +103,154 @@ impl Rwal {
         fs::write(cache_path, pallete).unwrap();
     }
 
-    pub fn run(&self) -> String {
-        let mut res: String = String::new();
-        let pallete: Vec<Color>;
+    fn write_to_colors_file(&self, pallete: &str) {
+        let path = format!("{}/colors", self.cache_dir);
+        println!("{}", path);
 
+        fs::File::create(&path).unwrap();
+        fs::write(&path, pallete).unwrap();
+    }
+
+    pub fn run(&self) {
         if self.is_cached() {
-            res = self.read_from_cache();
+            let pallete = self.read_from_cache();
+            self.write_to_colors_file(&pallete);
         } else {
-            pallete = self.get_pallete().unwrap();
-            for i in 0..2 {
-                for el in &pallete {
-                    res += &format!("{}\n", el.to_hex().to_string());
-                }
-            }
-            self.cache(&res);
+            let pallete = get_pallete(
+                &self.image,
+                self.thumb_size,
+                self.accent_color,
+                self.clamp_min_v,
+                self.clamp_max_v,
+            )
+            .unwrap()
+            .join("\n");
+            self.cache(&pallete);
+            self.write_to_colors_file(&pallete);
+        }
+    }
+}
+
+fn get_colors(image: &DynamicImage, thumb_size: (u32, u32)) -> Vec<RGB> {
+    let thumb_image = image
+        .resize_exact(thumb_size.0, thumb_size.1, Nearest)
+        .to_rgb8();
+    let mut colors: Vec<RGB> = Vec::new();
+
+    for pixel in thumb_image.pixels() {
+        colors.push(RGB::new(pixel[0] as f64, pixel[1] as f64, pixel[2] as f64));
+    }
+
+    colors
+}
+
+fn clamp_color(color: RGB, min_v: f32, max_v: f32) -> Vec<u8> {
+    let mut hsv = HSV::from(color);
+    let (h, s, v) = (hsv.h, hsv.s, hsv.v);
+    let v = f32::min(f32::max(min_v / 255.0, v as f32), max_v / 255.0);
+    hsv.h = h;
+    hsv.s = s;
+    hsv.v = v as f64;
+    let rgb = RGB::from(hsv);
+    let vec = vec![rgb.r as u8, rgb.g as u8, rgb.b as u8];
+    return vec;
+}
+
+fn lab_to_hsv(lab: Lab) -> HSV {
+    let l = lab.l;
+    let a = lab.a;
+    let b = lab.b;
+
+    let _lab = LAB::new(l as f64, a as f64, b as f64);
+
+    HSV::from(_lab)
+}
+
+fn merge_rgb(f_color: RGB, s_color: RGB) -> RGB {
+    let r = (f_color.r + f_color.r + f_color.r + f_color.r + s_color.r) / 5.0;
+    let g = (f_color.g + f_color.g + f_color.g + f_color.g + s_color.g) / 5.0;
+    let b = (f_color.b + f_color.b + f_color.b + f_color.b + s_color.b) / 5.0;
+
+    RGB::new(r, g, b)
+}
+
+fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> {
+    let lab_centroids: Vec<Lab> = clusters.centroids.to_vec();
+    let mut hsv_colors = Vec::new();
+    for lab in lab_centroids {
+        hsv_colors.push(lab_to_hsv(lab))
+    }
+
+    hsv_colors.sort_by(|a, b| a.h.partial_cmp(&b.h).unwrap_or(Ordering::Equal));
+
+    let mut rgb_colors = Vec::new();
+    for hsv in hsv_colors {
+        rgb_colors.push(RGB::from(hsv));
+    }
+
+    let accent = rgb_colors[accent_color as usize];
+    let bg_color = merge_rgb(RGB::new(0.0, 0.0, 0.0), accent.clone());
+    let fg_color = merge_rgb(RGB::new(255.0, 255.0, 255.0), accent.clone());
+
+    rgb_colors.insert(0, bg_color);
+    rgb_colors.push(fg_color);
+
+    let mut res = Vec::new();
+
+    for rgb in &rgb_colors {
+        let mut tmp = String::new();
+        let mut h_r = format!("{:X}", rgb.r as u8);
+        let mut h_g = format!("{:X}", rgb.g as u8);
+        let mut h_b = format!("{:X}", rgb.b as u8);
+
+        if h_r.len() == 1 {
+            h_r = format!("0{}", h_r)
+        }
+        if h_g.len() == 1 {
+            h_g = format!("0{}", h_g)
+        }
+        if h_b.len() == 1 {
+            h_b = format!("0{}", h_b)
         }
 
-        return res;
+        tmp = format!("#{}{}{}", h_r, h_g, h_b);
+        res.push(tmp)
     }
+    let sres = res.clone();
+    res.extend(sres);
+
+    res
+}
+
+fn get_pallete(
+    image: &DynamicImage,
+    thumb_size: (u32, u32),
+    accent_color: u32,
+    min_v: f32,
+    max_v: f32,
+) -> PalletteReadResult<Vec<String>, Error> {
+    let colors = get_colors(image, thumb_size);
+    let mut clamped_colors = Vec::new();
+
+    for color in &colors {
+        clamped_colors.extend(clamp_color(color.clone(), min_v, max_v))
+    }
+
+    let colors_slice = clamped_colors.as_slice();
+    let lab: Vec<Lab> = from_component_slice::<Srgb<u8>>(&colors_slice)
+        .iter()
+        .map(|x| x.into_format().into_color())
+        .collect();
+
+    let mut clusters = Kmeans::new();
+    for i in 0..3 {
+        let run_result = get_kmeans(6, 100, 0.001, false, &lab, 64 + i as u64);
+        if run_result.score < clusters.score {
+            clusters = run_result;
+        }
+    }
+
+    let result = order_colors_by_hue(clusters, accent_color);
+
+    return Ok(result);
 }
