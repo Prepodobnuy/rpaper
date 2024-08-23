@@ -1,11 +1,9 @@
 use crate::Path;
 use std::env;
-use std::error::Error;
 use std::path::PathBuf;
-use std::process::exit;
 use std::process::Command;
 
-use crate::wallpaper::Image_operations;
+use crate::config::ImageOperations;
 
 fn add_home_path_to_string(path: &str) -> String {
     let home_dir = match env::var_os("HOME") {
@@ -33,32 +31,6 @@ pub fn parse_command(command: &str, image_path: &str, display: &str) -> String {
         .replace("{display}", display);
 }
 
-pub fn parse_args(default_config_path: String) -> (String, String, bool) {
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() == 1 {
-        exit(1)
-    }
-
-    let mut image_path = String::from(&args[1]);
-    let current_dir = std::env::current_dir().unwrap();
-    image_path = current_dir.join(image_path).to_string_lossy().to_string();
-
-    let mut cache_only: bool = false;
-
-    let mut config_path = default_config_path;
-
-    for (i, param) in args.iter().enumerate() {
-        match param.as_str() {
-            "-c" | "--conf" => config_path = parse_path(&args[i + 1]),
-            "--cache-only" => cache_only = true,
-            _ => {}
-        }
-    }
-
-    return (config_path, image_path, cache_only);
-}
-
 pub fn spawn(command: String) {
     Command::new("bash")
         .args(["-c", &command])
@@ -78,23 +50,7 @@ pub fn get_image_name(image_path: &str) -> String {
     return String::from(image_path);
 }
 
-pub fn start(command: &str) -> Result<(), Box<dyn Error>> {
-    let mut child = Command::new("bash")
-        .args(["-c", &command])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()?;
-
-    let status = child.wait()?;
-
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("Command '{}' failed with status: {}", command, status).into())
-    }
-}
-
-pub fn get_img_ops_affected_name(image_name: &str, image_ops: &Image_operations) -> String {
+pub fn get_img_ops_affected_name(image_name: &str, image_ops: &ImageOperations) -> String {
     let mut image_name: String = String::from(image_name);
 
     if image_ops.change_contrast {

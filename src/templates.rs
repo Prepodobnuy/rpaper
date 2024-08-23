@@ -1,5 +1,4 @@
 use crate::utils::spawn;
-use serde_json::Value;
 use std::clone::Clone;
 use std::fs::File;
 use std::io::Read;
@@ -16,6 +15,26 @@ pub struct Template {
     pub command: String,
 }
 
+impl Template {
+    pub fn new(
+        temp_path: String,
+        conf_path: String,
+        use_quotes: bool,
+        use_sharps: bool,
+        opacity: String,
+        command: String,
+    ) -> Self {
+        Template {
+            temp_path,
+            conf_path,
+            use_quotes,
+            use_sharps,
+            opacity,
+            command,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ColorVariable {
     pub name: String,
@@ -25,12 +44,21 @@ pub struct ColorVariable {
 }
 
 impl ColorVariable {
+    pub fn new(name: String, value: usize, brightness: i32, inverted: bool) -> Self {
+        ColorVariable {
+            name,
+            value,
+            brightness,
+            inverted,
+        }
+    }
+
     fn process_color(&self, color: u8) -> String {
-        let mut res = String::new();
+        let mut _res = String::new();
         if color as i32 + self.brightness >= 255 {
-            res = String::from("FF");
+            _res = String::from("FF");
         } else if color as i32 + self.brightness <= 0 {
-            res = String::from("00");
+            _res = String::from("00");
         } else {
             let mut tmp: i32 = color as i32 + self.brightness;
             if self.inverted {
@@ -39,13 +67,13 @@ impl ColorVariable {
             let hex = format!("{:X}", tmp);
 
             if hex.len() == 1 {
-                res = format!("0{}", hex);
+                _res = format!("0{}", hex);
             } else {
-                res = format!("{}", hex);
+                _res = format!("{}", hex);
             }
         }
 
-        return res;
+        _res
     }
 
     pub fn process_colors(&self, value: &str) -> String {
@@ -59,59 +87,6 @@ impl ColorVariable {
 
         return format!("{}{}{}", hex_r, hex_g, hex_b);
     }
-}
-
-fn get_templates(data: Value) -> Vec<Template> {
-    let mut res: Vec<Template> = Vec::new();
-    for raw_template in data.as_array().unwrap() {
-        res.push(Template {
-            temp_path: String::from(raw_template["template_path"].as_str().unwrap()),
-            conf_path: String::from(raw_template["config_path"].as_str().unwrap()),
-            use_quotes: raw_template["use_quotes"].as_bool().unwrap(),
-            use_sharps: raw_template["use_sharps"].as_bool().unwrap(),
-            opacity: String::from(raw_template["opacity"].as_str().unwrap()),
-            command: String::from(raw_template["command"].as_str().unwrap()),
-        })
-    }
-    return res;
-}
-fn get_color_variables(data: Value) -> Vec<ColorVariable> {
-    let mut variables: Vec<ColorVariable> = Vec::new();
-    for raw_variable in data.as_array().unwrap() {
-        let mut name = String::from(raw_variable["name"].as_str().unwrap());
-        let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
-        let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
-        let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
-
-        if name.contains("{br}") {
-            let oldname = name;
-            name = oldname.replace("{br}", "");
-            for i in 1..11 {
-                variables.push(ColorVariable {
-                    name: oldname.replace("{br}", &format!("d{}", i)),
-                    value,
-                    brightness: brightness - i * 10,
-                    inverted,
-                });
-            }
-            for i in 1..11 {
-                variables.push(ColorVariable {
-                    name: oldname.replace("{br}", &format!("l{}", i)),
-                    value,
-                    brightness: brightness + i * 10,
-                    inverted,
-                });
-            }
-        }
-
-        variables.push(ColorVariable {
-            name,
-            value,
-            brightness,
-            inverted,
-        })
-    }
-    return variables;
 }
 
 fn get_colors_from_scheme(path: String) -> Vec<String> {
@@ -129,11 +104,12 @@ fn get_colors_from_scheme(path: String) -> Vec<String> {
     return res;
 }
 
-pub fn apply_templates(templates_value: Value, variables_value: Value, color_scheme_path: String) {
+pub fn apply_templates(
+    templates: Vec<Template>,
+    variables: Vec<ColorVariable>,
+    color_scheme_path: String,
+) {
     let colors = get_colors_from_scheme(color_scheme_path);
-
-    let templates: Vec<Template> = get_templates(templates_value);
-    let variables: Vec<ColorVariable> = get_color_variables(variables_value);
 
     for template in templates {
         let local_colors = colors.to_vec();

@@ -12,13 +12,6 @@ use palette::{IntoColor, Lab, Srgb};
 
 use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 
-#[derive(Debug)]
-enum Error {
-    TooLarge,
-}
-
-type PalletteReadResult<T, E> = Result<T, E>;
-
 pub struct Rwal {
     image_name: String,
     cache_dir: String,
@@ -60,7 +53,7 @@ impl Rwal {
         )
     }
 
-    fn is_cached(&self) -> bool {
+    pub fn is_cached(&self) -> bool {
         let cache_path = self.get_pallete_cache_path();
 
         Path::new(&cache_path).exists()
@@ -86,23 +79,22 @@ impl Rwal {
         fs::write(&path, pallete).unwrap();
     }
 
-    pub fn run(&self, image: &DynamicImage) {
-        if self.is_cached() {
-            let pallete = self.read_from_cache();
-            self.write_to_colors_file(&pallete);
-        } else {
-            let pallete = get_pallete(
-                image,
-                self.thumb_size,
-                self.accent_color,
-                self.clamp_min_v,
-                self.clamp_max_v,
-            )
-            .unwrap()
-            .join("\n");
-            self.cache(&pallete);
-            self.write_to_colors_file(&pallete);
-        }
+    pub fn cached_run(&self) {
+        let pallete = self.read_from_cache();
+        self.write_to_colors_file(&pallete);
+    }
+
+    pub fn uncached_run(&self, image: &DynamicImage) {
+        let pallete = get_pallete(
+            image,
+            self.thumb_size,
+            self.accent_color,
+            self.clamp_min_v,
+            self.clamp_max_v,
+        )
+        .join("\n");
+        self.cache(&pallete);
+        self.write_to_colors_file(&pallete);
     }
 }
 
@@ -173,7 +165,7 @@ fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> 
     let mut res = Vec::new();
 
     for rgb in &rgb_colors {
-        let mut tmp = String::new();
+        let mut _tmp = String::new();
         let mut h_r = format!("{:X}", rgb.r as u8);
         let mut h_g = format!("{:X}", rgb.g as u8);
         let mut h_b = format!("{:X}", rgb.b as u8);
@@ -188,8 +180,8 @@ fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> 
             h_b = format!("0{}", h_b)
         }
 
-        tmp = format!("#{}{}{}", h_r, h_g, h_b);
-        res.push(tmp)
+        _tmp = format!("#{}{}{}", h_r, h_g, h_b);
+        res.push(_tmp)
     }
     let sres = res.clone();
     res.extend(sres);
@@ -203,7 +195,7 @@ fn get_pallete(
     accent_color: u32,
     min_v: f32,
     max_v: f32,
-) -> PalletteReadResult<Vec<String>, Error> {
+) -> Vec<String> {
     let colors = get_colors(image, thumb_size);
     let mut clamped_colors = Vec::new();
 
@@ -227,5 +219,5 @@ fn get_pallete(
 
     let result = order_colors_by_hue(clusters, accent_color);
 
-    return Ok(result);
+    result
 }

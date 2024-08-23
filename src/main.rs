@@ -1,8 +1,7 @@
-use serde_json::Value;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
-use std::process::exit;
+use std::thread;
+
+use crate::config::{ArgvParser, Config};
 
 mod config;
 mod displays;
@@ -11,83 +10,95 @@ mod templates;
 mod utils;
 mod wallpaper;
 
-fn read_data(data_path: String) -> Value {
-    let mut file = File::open(data_path).unwrap();
-    let mut json_data = String::new();
-    file.read_to_string(&mut json_data).unwrap();
-
-    let data: Value = serde_json::from_str(&json_data).unwrap();
-
-    return data;
-}
-
 fn main() {
-    let mut config_path: String = utils::parse_path("~/.config/rpaper/config.json");
-    let image_path: String;
-    let cache_only: bool;
+    let argv_parser = ArgvParser::new();
 
-    (config_path, image_path, cache_only) = utils::parse_args(config_path);
-
+    let default_config_path: String = utils::parse_path("~/.config/rpaper/config.json");
+    let config_path = argv_parser.get_config_path(default_config_path);
+    let image_path = argv_parser.get_image_path();
     let image_name = utils::get_image_name(&image_path);
 
-    let config_data: Value = read_data(config_path);
-    let config: config::Config = config::get_config(&config_data, &image_path);
-    let displays = displays::get_displays(&config_data);
-    let image_operations = wallpaper::Image_operations::new(&config_data);
-    let cached_wallpapers_names =
-        wallpaper::get_cached_images_names(&displays, &image_name, &image_operations);
-    let cached_wallpapers_paths =
-        wallpaper::get_cached_images_paths(&cached_wallpapers_names, &config.cached_images_path);
+    let config = Config::new(&config_path);
 
-    let rwal = rwal::Rwal::new(
-        &utils::get_img_ops_affected_name(&image_name, &image_operations),
-        &config.rwal_cache_dir,
-        config.rwal_thumb,
-        config.rwal_accent_color,
-        config.rwal_clamp_min_v,
-        config.rwal_clamp_max_v,
-    );
+    let mut threads = Vec::new();
 
-    if cache_only {
-        wallpaper::cache(
-            &image_path,
-            &image_name,
-            &image_operations,
-            &config.wallpaper_resize_backend,
-            &displays,
-            &cached_wallpapers_paths,
-            &rwal,
-            config.change_colorscheme,
+    let cache_colorscheme = config.cache_colorscheme;
+    let apply_templates = config.apply_templates;
+    if cache_colorscheme || apply_templates {
+        // colorscheme & templates processing
+        let image_ops = config.image_operations.clone();
+        let displays = config.displays.clone();
+        let img_path = image_path.clone();
+        let color_scheme_file = config.color_scheme_file;
+        let image_resize_algorithm = config.wallpaper_resize_backend.clone();
+        let templates = config.templates;
+        let variables = config.variables;
+        let rwal = rwal::Rwal::new(
+            &utils::get_img_ops_affected_name(&image_name, &image_ops),
+            &config.rwal_cache_dir,
+            config.rwal_thumb,
+            config.rwal_accent_color,
+            config.rwal_clamp_min_v,
+            config.rwal_clamp_max_v,
         );
-        return;
+        let _colorscheme_thread = thread::spawn(move || {
+            if cache_colorscheme {
+                if !rwal.is_cached() {
+                    let img = wallpaper::get_image(
+                        &img_path,
+                        &image_ops,
+                        &displays,
+                        &image_resize_algorithm,
+                    );
+                    rwal.uncached_run(&img.clone());
+                } else {
+                    rwal.cached_run();
+                }
+            }
+            if apply_templates {
+                templates::apply_templates(templates, variables, color_scheme_file);
+            }
+        });
+        threads.push(_colorscheme_thread);
     }
 
-    if config.apply_templates {
-        let templates_value: Value = read_data(config.templates_path);
-        let variables_value: Value = read_data(config.colorvars_path);
-
-        templates::apply_templates(templates_value, variables_value, config.color_scheme_file);
-    }
-
-    if config.cache_wallpaper {
-        wallpaper::cache(
-            &image_path,
-            &image_name,
-            &image_operations,
-            &config.wallpaper_resize_backend,
-            &displays,
-            &cached_wallpapers_paths,
-            &rwal,
-            config.change_colorscheme,
+    let cache_wallpaper = config.cache_wallpaper;
+    let set_wallpaper = config.set_wallpaper;
+    if cache_wallpaper {
+        // wallpapers processing
+        let image_ops = config.image_operations.clone();
+        let displays = config.displays.clone();
+        let cached_wallpapers_names =
+            wallpaper::get_cached_images_names(&displays, &image_name, &image_ops);
+        let cached_wallpapers_paths = wallpaper::get_cached_images_paths(
+            &cached_wallpapers_names,
+            &config.cached_images_path,
         );
+        let image_resize_algorithm = config.wallpaper_resize_backend.clone();
 
-        if config.set_wallpaper {
-            wallpaper::set(
-                &displays,
-                &cached_wallpapers_paths,
-                &config.set_wallpaper_command,
-            );
-        }
+        let _wallpaper_thread = thread::spawn(move || {
+            if cache_wallpaper {
+                wallpaper::cache(
+                    &image_path,
+                    &image_name,
+                    &image_ops,
+                    &image_resize_algorithm,
+                    &displays,
+                    &cached_wallpapers_paths,
+                );
+
+                if set_wallpaper {
+                    wallpaper::set(
+                        &displays,
+                        &cached_wallpapers_paths,
+                        &config.set_wallpaper_command,
+                    );
+                }
+            }
+        });
+        threads.push(_wallpaper_thread);
     }
-    exit(0);
+    for thread in threads {
+        thread.join().unwrap()
+    }
 }
