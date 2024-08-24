@@ -18,7 +18,7 @@ fn main() {
     let image_path = argv_parser.get_image_path();
     let image_name = utils::get_image_name(&image_path);
 
-    let config = Config::new(&config_path);
+    let config = Config::new(&config_path, argv_parser);
 
     let mut threads = Vec::new();
 

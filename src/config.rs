@@ -44,6 +44,60 @@ impl ArgvParser {
 
         self.argv[1].clone()
     }
+    fn wallpaper_cache_only(&self) -> bool {
+        let mut res = false;
+        if self.argv.len() <= 2 {
+            return res;
+        }
+
+        for param in self.argv.iter() {
+            match param.as_str() {
+                "--cache-wallpaper" => {
+                    res = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        res
+    }
+    fn color_scheme_cache_only(&self) -> bool {
+        let mut res = false;
+        if self.argv.len() <= 2 {
+            return res;
+        }
+
+        for param in self.argv.iter() {
+            match param.as_str() {
+                "--cache-color" => {
+                    res = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        res
+    }
+    fn cache_only(&self) -> bool {
+        let mut res = false;
+        if self.argv.len() <= 2 {
+            return res;
+        }
+
+        for param in self.argv.iter() {
+            match param.as_str() {
+                "--cache" => {
+                    res = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        res
+    } 
 }
 
 fn read_data(data_path: &str) -> Value {
@@ -129,7 +183,7 @@ impl ImageOperations {
 }
 
 impl Config {
-    pub fn new(config_path: &str) -> Self {
+    pub fn new(config_path: &str, argv_parser: ArgvParser) -> Self {
         // json raw data
         let config_data = read_data(config_path);
         let templates_data =
@@ -147,10 +201,25 @@ impl Config {
         let wallpaper_resize_backend =
             String::from(config_data["wallpaper_resize_backend"].as_str().unwrap());
         //booleans
-        let cache_colorscheme = config_data["cache_colorscheme"].as_bool().unwrap_or(true);
-        let apply_templates = config_data["apply_templates"].as_bool().unwrap_or(true);
-        let cache_wallpaper = config_data["cache_wallpaper"].as_bool().unwrap_or(true);
-        let set_wallpaper = config_data["set_wallpaper"].as_bool().unwrap_or(true);
+        let mut cache_colorscheme = config_data["cache_colorscheme"].as_bool().unwrap_or(true);
+        let mut apply_templates = config_data["apply_templates"].as_bool().unwrap_or(true);
+        let mut cache_wallpaper = config_data["cache_wallpaper"].as_bool().unwrap_or(true);
+        let mut set_wallpaper = config_data["set_wallpaper"].as_bool().unwrap_or(true);
+        if argv_parser.cache_only() {
+            apply_templates = false;
+            set_wallpaper = false;
+        } 
+        if argv_parser.color_scheme_cache_only() {
+            apply_templates = false;
+            set_wallpaper = false;
+            cache_wallpaper = false;
+        }
+        if argv_parser.wallpaper_cache_only() {
+            apply_templates = false;
+            set_wallpaper = false;
+            cache_colorscheme = false;
+        }
+
         //rwal
         let rwal_cache_dir = parse_path(config_data["rwal_cache_dir"].as_str().unwrap());
         let rwal_thumb_w = config_data["rwal_thumb_w"].as_u64().unwrap_or(200) as u32;
