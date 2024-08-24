@@ -2,7 +2,7 @@ use crate::config::ImageOperations;
 use crate::displays::{self, displays_max_height, displays_max_width, Display};
 use crate::utils::{get_img_ops_affected_name, parse_command, parse_path, spawn};
 use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
-use image::{self, DynamicImage};
+use image::{self, DynamicImage, RgbImage};
 use std::path::Path;
 use std::thread;
 
@@ -74,6 +74,38 @@ pub fn get_image(
         _image.invert()
     }
     _image
+}
+
+pub fn get_thumbed_image(
+    img_path: &str,
+    image_ops: &ImageOperations,
+    w: u32, 
+    h: u32
+) -> RgbImage {
+    let mut _image = image::open(img_path).unwrap();
+    _image = _image.resize_exact(w, h, Nearest);
+    if image_ops.change_contrast {
+        _image = _image.adjust_contrast(image_ops.contrast)
+    }
+    if image_ops.change_brightness {
+        _image = _image.brighten(image_ops.brightness)
+    }
+    if image_ops.change_huerotate {
+        _image = _image.huerotate(image_ops.huerotate)
+    }
+    if image_ops.change_blur {
+        _image = _image.blur(image_ops.blur)
+    }
+    if image_ops.image_flip_h {
+        _image = _image.fliph()
+    }
+    if image_ops.image_flip_v {
+        _image = _image.flipv()
+    }
+    if image_ops.invert_image {
+        _image.invert()
+    }
+    _image.to_rgb8()
 }
 
 pub fn get_cached_images_names(

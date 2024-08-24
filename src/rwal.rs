@@ -2,9 +2,7 @@ use std::cmp::Ordering;
 use std::fs;
 use std::path::Path;
 
-use image;
-use image::imageops::Nearest;
-use image::DynamicImage;
+use image::{self, RgbImage};
 
 use kmeans_colors::{get_kmeans, Kmeans};
 use palette::cast::from_component_slice;
@@ -15,7 +13,7 @@ use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 pub struct Rwal {
     image_name: String,
     cache_dir: String,
-    thumb_size: (u32, u32),
+    pub thumb_size: (u32, u32),
     accent_color: u32,
     clamp_min_v: f32,
     clamp_max_v: f32,
@@ -66,6 +64,7 @@ impl Rwal {
     }
 
     fn cache(&self, pallete: &str) {
+        println!("caching colors");
         let cache_path = self.get_pallete_cache_path();
 
         fs::File::create(&cache_path).unwrap();
@@ -84,10 +83,9 @@ impl Rwal {
         self.write_to_colors_file(&pallete);
     }
 
-    pub fn uncached_run(&self, image: &DynamicImage) {
+    pub fn uncached_run(&self, image: &RgbImage) {
         let pallete = get_pallete(
             image,
-            self.thumb_size,
             self.accent_color,
             self.clamp_min_v,
             self.clamp_max_v,
@@ -98,13 +96,10 @@ impl Rwal {
     }
 }
 
-fn get_colors(image: &DynamicImage, thumb_size: (u32, u32)) -> Vec<RGB> {
-    let thumb_image = image
-        .resize_exact(thumb_size.0, thumb_size.1, Nearest)
-        .to_rgb8();
+fn get_colors(image: &RgbImage) -> Vec<RGB> {
     let mut colors: Vec<RGB> = Vec::new();
 
-    for pixel in thumb_image.pixels() {
+    for pixel in image.pixels() {
         colors.push(RGB::new(pixel[0] as f64, pixel[1] as f64, pixel[2] as f64));
     }
 
@@ -190,13 +185,12 @@ fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> 
 }
 
 fn get_pallete(
-    image: &DynamicImage,
-    thumb_size: (u32, u32),
+    image: &RgbImage,
     accent_color: u32,
     min_v: f32,
     max_v: f32,
 ) -> Vec<String> {
-    let colors = get_colors(image, thumb_size);
+    let colors = get_colors(image);
     let mut clamped_colors = Vec::new();
 
     for color in &colors {

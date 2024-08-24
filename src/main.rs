@@ -27,10 +27,8 @@ fn main() {
     if cache_colorscheme || apply_templates {
         // colorscheme & templates processing
         let image_ops = config.image_operations.clone();
-        let displays = config.displays.clone();
         let img_path = image_path.clone();
         let color_scheme_file = config.color_scheme_file;
-        let image_resize_algorithm = config.wallpaper_resize_backend.clone();
         let templates = config.templates;
         let variables = config.variables;
         let rwal = rwal::Rwal::new(
@@ -44,11 +42,11 @@ fn main() {
         let _colorscheme_thread = thread::spawn(move || {
             if cache_colorscheme {
                 if !rwal.is_cached() {
-                    let img = wallpaper::get_image(
+                    let img = wallpaper::get_thumbed_image(
                         &img_path,
                         &image_ops,
-                        &displays,
-                        &image_resize_algorithm,
+                        rwal.thumb_size.0,
+                        rwal.thumb_size.1,
                     );
                     rwal.uncached_run(&img.clone());
                 } else {
