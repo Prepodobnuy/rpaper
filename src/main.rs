@@ -1,5 +1,7 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::fs;
 use std::thread;
+use std::env;
 
 use crate::config::{ArgvParser, Config};
 
@@ -10,12 +12,12 @@ mod templates;
 mod utils;
 mod wallpaper;
 
-fn main() {
+fn run(image_path: &str) {
     let argv_parser = ArgvParser::new();
 
     let default_config_path: String = utils::parse_path("~/.config/rpaper/config.json");
     let config_path = argv_parser.get_config_path(default_config_path);
-    let image_path = argv_parser.get_image_path();
+    let image_path = String::from(image_path);
     let image_name = utils::get_image_name(&image_path);
 
     let config = Config::new(&config_path, argv_parser);
@@ -64,6 +66,7 @@ fn main() {
     let set_wallpaper = config.set_wallpaper;
     if cache_wallpaper {
         // wallpapers processing
+        let image_path = image_path.clone();
         let image_ops = config.image_operations.clone();
         let displays = config.displays.clone();
         let cached_wallpapers_names =
@@ -98,5 +101,53 @@ fn main() {
     }
     for thread in threads {
         thread.join().unwrap()
+    }
+}
+
+fn get_absolute_path(path: PathBuf) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path)
+}
+
+fn get_images_from_dir(dir: &str) -> Vec<String> {
+    let path = Path::new(dir);
+    let files = fs::read_dir(path).unwrap();
+    let mut res: Vec<String> = Vec::new();
+
+    for entry in files {
+        let entry = entry.unwrap();
+        let file_type = entry.file_type().unwrap();
+        if file_type.is_dir() {
+            res.extend(get_images_from_dir(&get_absolute_path(entry.path()).to_string_lossy().to_string()))
+        } else if file_type.is_file() {
+            res.push(get_absolute_path(entry.path()).to_string_lossy().to_string())
+        }
+    }
+    res
+}
+
+fn main() {
+    let argv: Vec<String> = env::args().collect();
+    if argv.len() == 1 {return;}
+    let path = Path::new(&argv[1]);
+    if path.is_dir() && argv.contains(&String::from("--cache")) {
+        let images = get_images_from_dir(&argv[1]);
+        for chunk in images.chunks(6) {
+            let mut threads = Vec::new();
+
+            for image in chunk {
+                let image = image.clone();
+                let thread = thread::spawn(move || {
+                    run(&image)
+                });
+                threads.push(thread);
+            }
+
+            for thread in threads {
+                thread.join().unwrap();
+            }
+        }
+
+    } else if path.is_file() {
+        run(&argv[1])
     }
 }

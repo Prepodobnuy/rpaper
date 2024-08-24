@@ -2,7 +2,6 @@ use serde_json::Value;
 use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::process::exit;
 
 use crate::displays::Display;
 use crate::templates::{ColorVariable, Template};
@@ -36,13 +35,6 @@ impl ArgvParser {
             }
         }
         res
-    }
-    pub fn get_image_path(&self) -> String {
-        if self.argv.len() == 1 {
-            exit(1);
-        }
-
-        self.argv[1].clone()
     }
     fn wallpaper_cache_only(&self) -> bool {
         let mut res = false;
