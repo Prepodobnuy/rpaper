@@ -175,7 +175,7 @@ pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>,
 
         let rcommand = parse_command(command, &path, &displays[i].name);
         if Path::new(&path).exists() {
-            spawn(rcommand);
+            spawn(&rcommand);
         }
     }
 }
