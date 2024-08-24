@@ -3,6 +3,9 @@ use std::fs;
 use std::thread;
 use std::env;
 
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
 use crate::config::{ArgvParser, Config};
 
 mod config;
@@ -129,24 +132,33 @@ fn main() {
     let argv: Vec<String> = env::args().collect();
     if argv.len() == 1 {return;}
     let path = Path::new(&argv[1]);
-    if path.is_dir() && argv.contains(&String::from("--cache")) {
+    if path.is_dir() {
         let images = get_images_from_dir(&argv[1]);
-        for chunk in images.chunks(6) {
-            let mut threads = Vec::new();
-
-            for image in chunk {
-                let image = image.clone();
-                let thread = thread::spawn(move || {
-                    run(&image)
-                });
-                threads.push(thread);
+        if argv.contains(&String::from("--cache")) {
+            for chunk in images.chunks(6) {
+                let mut threads = Vec::new();
+    
+                for image in chunk {
+                    let image = image.clone();
+                    let thread = thread::spawn(move || {
+                        run(&image)
+                    });
+                    threads.push(thread);
+                }
+    
+                for thread in threads {
+                    thread.join().unwrap();
+                }
             }
+        } else {
+            let mut rng = thread_rng();
+            let random_image = images.choose(&mut rng).cloned();
 
-            for thread in threads {
-                thread.join().unwrap();
+            match random_image {
+                Some(random_image) =>run(&random_image),
+                _ => {},
             }
         }
-
     } else if path.is_file() {
         run(&argv[1])
     }
