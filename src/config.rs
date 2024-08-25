@@ -89,7 +89,7 @@ impl ArgvParser {
         }
 
         res
-    } 
+    }
 }
 
 fn read_data(data_path: &str) -> Value {
@@ -184,8 +184,16 @@ impl Config {
             read_data(&parse_path(config_data["variables_path"].as_str().unwrap()));
 
         // path
-        let cached_images_path = parse_path(config_data["cached_wallpapers_dir"].as_str().unwrap());
-        let color_scheme_file = parse_path(config_data["color_scheme_file"].as_str().unwrap());
+        let cached_images_path = parse_path(
+            config_data["cached_wallpapers_dir"]
+                .as_str()
+                .unwrap_or("~/.config/rpaper/templates.json"),
+        );
+        let color_scheme_file = parse_path(
+            config_data["color_scheme_file"]
+                .as_str()
+                .unwrap_or("~/.config/rpaper/color_variables.json"),
+        );
         // command
         let set_wallpaper_command =
             String::from(config_data["set_wallpaper_command"].as_str().unwrap());
@@ -200,7 +208,7 @@ impl Config {
         if argv_parser.cache_only() {
             apply_templates = false;
             set_wallpaper = false;
-        } 
+        }
         if argv_parser.color_scheme_cache_only() {
             apply_templates = false;
             set_wallpaper = false;
@@ -213,7 +221,11 @@ impl Config {
         }
 
         //rwal
-        let rwal_cache_dir = parse_path(config_data["rwal_cache_dir"].as_str().unwrap());
+        let rwal_cache_dir = parse_path(
+            config_data["rwal_cache_dir"]
+                .as_str()
+                .unwrap_or("~/.cache/rpaper/rwal"),
+        );
         let rwal_thumb_w = config_data["rwal_thumb_w"].as_u64().unwrap_or(200) as u32;
         let rwal_thumb_h = config_data["rwal_thumb_h"].as_u64().unwrap_or(200) as u32;
         let rwal_thumb = (rwal_thumb_w, rwal_thumb_h);
@@ -320,32 +332,32 @@ fn get_templates(templates_data: Value) -> Vec<Template> {
 
 fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
     let mut variables: Vec<ColorVariable> = Vec::new();
-        for raw_variable in colorvars_data.as_array().unwrap() {
-            let mut name = String::from(raw_variable["name"].as_str().unwrap());
-            let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
-            let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
-            let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
-            if name.contains("{br}") {
-                let oldname = name;
-                name = oldname.replace("{br}", "");
-                for i in 1..11 {
-                    variables.push(ColorVariable::new(
-                        oldname.replace("{br}", &format!("d{}", i)),
-                        value,
-                        brightness - (i * 10),
-                        inverted,
-                    ));
-                }
-                for i in 1..11 {
-                    variables.push(ColorVariable::new(
-                        oldname.replace("{br}", &format!("l{}", i)),
-                        value,
-                        brightness + (i * 10),
-                        inverted,
-                    ));
-                }
+    for raw_variable in colorvars_data.as_array().unwrap() {
+        let mut name = String::from(raw_variable["name"].as_str().unwrap());
+        let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
+        let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
+        let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
+        if name.contains("{br}") {
+            let oldname = name;
+            name = oldname.replace("{br}", "");
+            for i in 1..11 {
+                variables.push(ColorVariable::new(
+                    oldname.replace("{br}", &format!("d{}", i)),
+                    value,
+                    brightness - (i * 10),
+                    inverted,
+                ));
             }
-            variables.push(ColorVariable::new(name, value, brightness, inverted));
+            for i in 1..11 {
+                variables.push(ColorVariable::new(
+                    oldname.replace("{br}", &format!("l{}", i)),
+                    value,
+                    brightness + (i * 10),
+                    inverted,
+                ));
+            }
         }
+        variables.push(ColorVariable::new(name, value, brightness, inverted));
+    }
     variables
 }

@@ -14,7 +14,6 @@ pub struct Template {
     pub opacity: String,
     pub pre_command: String,
     pub post_command: String,
-
 }
 
 impl Template {
@@ -34,12 +33,12 @@ impl Template {
         match parsed_command.len() {
             1 => {
                 post_command = String::from(parsed_command[0]);
-            },
+            }
             2 => {
                 pre_command = String::from(parsed_command[0]);
                 post_command = String::from(parsed_command[1]);
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         Template {
@@ -134,7 +133,7 @@ pub fn apply_templates(
     let mut threads = Vec::new();
 
     for template in templates {
-        let _template = template.clone(); 
+        let _template = template.clone();
         let local_colors = colors.to_vec();
         let local_variables = variables.to_vec();
         let thread = thread::spawn(move || {
@@ -146,7 +145,8 @@ pub fn apply_templates(
             for variable in &local_variables {
                 let value = &local_colors[variable.value][1..];
 
-                let mut color = format!("#{}{}", variable.process_colors(&value), _template.opacity);
+                let mut color =
+                    format!("#{}{}", variable.process_colors(&value), _template.opacity);
 
                 if !_template.use_sharps {
                     color = String::from(&color[1..]);

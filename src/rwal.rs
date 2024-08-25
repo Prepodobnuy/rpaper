@@ -84,13 +84,8 @@ impl Rwal {
     }
 
     pub fn uncached_run(&self, image: &RgbImage) {
-        let pallete = get_pallete(
-            image,
-            self.accent_color,
-            self.clamp_min_v,
-            self.clamp_max_v,
-        )
-        .join("\n");
+        let pallete =
+            get_pallete(image, self.accent_color, self.clamp_min_v, self.clamp_max_v).join("\n");
         self.cache(&pallete);
         self.write_to_colors_file(&pallete);
     }
@@ -184,12 +179,7 @@ fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> 
     res
 }
 
-fn get_pallete(
-    image: &RgbImage,
-    accent_color: u32,
-    min_v: f32,
-    max_v: f32,
-) -> Vec<String> {
+fn get_pallete(image: &RgbImage, accent_color: u32, min_v: f32, max_v: f32) -> Vec<String> {
     let colors = get_colors(image);
     let mut clamped_colors = Vec::new();
 

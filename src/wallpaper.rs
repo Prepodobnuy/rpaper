@@ -76,12 +76,7 @@ pub fn get_image(
     _image
 }
 
-pub fn get_thumbed_image(
-    img_path: &str,
-    image_ops: &ImageOperations,
-    w: u32, 
-    h: u32
-) -> RgbImage {
+pub fn get_thumbed_image(img_path: &str, image_ops: &ImageOperations, w: u32, h: u32) -> RgbImage {
     let mut _image = image::open(img_path).unwrap();
     _image = _image.resize_exact(w, h, Nearest);
     if image_ops.change_contrast {
