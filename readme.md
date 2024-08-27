@@ -17,5 +17,6 @@
 - [use](https://github.com/Prepodobnuy/rpaper/blob/main/md/use.md)
 ## Todo
 - ~~get rid of pywal~~
+- auto detect displays params
 - add gif support
 - implement wallpaper display ;( hard
