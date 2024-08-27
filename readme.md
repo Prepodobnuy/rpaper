@@ -1,3 +1,4 @@
+[video demonstration](https://youtu.be/U2syaT_RHrE?si=bN3N_T57W-wNgM5a)
 ## Features
 - splitting wallpaper to multiple displays
 - applying various effects to wallpaper (such as blur, brightness etc.)
