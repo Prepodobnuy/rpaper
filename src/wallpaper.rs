@@ -1,10 +1,12 @@
 use crate::config::ImageOperations;
 use crate::displays::{self, displays_max_height, displays_max_width, Display};
-use crate::utils::{get_img_ops_affected_name, parse_command, parse_path, spawn};
+use crate::utils::{self, get_img_ops_affected_name, parse_command, parse_path, spawn};
 use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
 use image::{self, DynamicImage, RgbImage};
 use std::path::Path;
 use std::thread;
+use std::fs::File;
+use std::io::Write;
 
 fn calculate_width_height(
     image_width: u32,
@@ -164,13 +166,19 @@ pub fn cache(
     }
 }
 
-pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>, command: &str) {
+fn create_last_used_wallpaper_file(path: &str, data: &str) {
+    let mut file = File::create(path).unwrap();
+    file.write_all(data.as_bytes());
+}
+
+pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>, command: &str, ) {
     for i in 0..displays.len() {
         let path = &cached_images_paths[i];
 
         let rcommand = parse_command(command, &path, &displays[i].name);
         if Path::new(&path).exists() {
             spawn(&rcommand);
+            create_last_used_wallpaper_file(utils::parse_path(format!("~/.{}", displays[i].name).as_str()).as_str(), &cached_images_paths[i]);
         }
     }
 }
