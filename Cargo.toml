@@ -1,8 +1,8 @@
 [package]
 name = "rpaper"
 description = "Wallpaper setter & color palette generator written on rust."
-version = "0.1.0.270824"
-edition = "2024"
+version = "0.1.270824"
+edition = "2021"
 authors = ["prepodobnuy <zvfvbycsy6@gmail.com>"]
 license = "MIT"
 repository = "https://github.com/Prepodobnuy/rpaper"
