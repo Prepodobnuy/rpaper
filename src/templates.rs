@@ -1,8 +1,7 @@
 use crate::utils::{spawn, system};
 use std::clone::Clone;
 use std::fs::File;
-use std::io::Read;
-use std::io::Write;
+use std::io::{self, Read, Write};
 use std::thread;
 
 #[derive(Clone)]
@@ -122,6 +121,38 @@ fn get_colors_from_scheme(path: String) -> Vec<String> {
     return res;
 }
 
+fn apply_template(
+    template: Template, 
+    variables: Vec<ColorVariable>,
+    colors: Vec<String>,
+) -> Result<(), io::Error> {
+    system(&template.pre_command);
+    let mut file = File::open(template.temp_path)?;
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
+
+    for variable in &variables {
+        let value = &colors[variable.value][1..];
+
+        let mut color =
+            format!("#{}{}", variable.process_colors(&value), template.opacity);
+
+        if !template.use_sharps {
+            color = String::from(&color[1..]);
+        }
+        if template.use_quotes {
+            color = format!("{}{}{}", '"', color, '"');
+        }
+
+        data = data.replace(&variable.name, &color);
+    }
+    let mut file = File::create(template.conf_path)?;
+    file.write_all(data.as_bytes())?;
+    spawn(&template.post_command);
+
+    Ok(())
+}
+
 pub fn apply_templates(
     templates: Vec<Template>,
     variables: Vec<ColorVariable>,
@@ -136,36 +167,20 @@ pub fn apply_templates(
         let _template = template.clone();
         let local_colors = colors.to_vec();
         let local_variables = variables.to_vec();
-        let thread = thread::spawn(move || {
-            system(&_template.pre_command);
-            let mut file = File::open(_template.temp_path).unwrap();
-            let mut data = String::new();
-            file.read_to_string(&mut data).unwrap();
-
-            for variable in &local_variables {
-                let value = &local_colors[variable.value][1..];
-
-                let mut color =
-                    format!("#{}{}", variable.process_colors(&value), _template.opacity);
-
-                if !_template.use_sharps {
-                    color = String::from(&color[1..]);
-                }
-                if _template.use_quotes {
-                    color = format!("{}{}{}", '"', color, '"');
-                }
-
-                data = data.replace(&variable.name, &color);
-            }
-            let mut file = File::create(_template.conf_path).expect("Failed to create file");
-            file.write_all(data.as_bytes())
-                .expect("Failed to write to file");
-            spawn(&_template.post_command);
-        });
+        let thread = thread::spawn(move || { 
+            apply_template(
+                _template,
+                local_variables,
+                local_colors,
+            )
+         });
         threads.push(thread);
     }
 
     for thread in threads {
-        thread.join().unwrap();
+        match thread.join().unwrap() {
+            Ok(()) => {continue},
+            Err(err) => {println!("{}", err)}
+        }
     }
 }

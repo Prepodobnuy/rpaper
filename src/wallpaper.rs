@@ -168,7 +168,7 @@ pub fn cache(
 
 fn create_last_used_wallpaper_file(path: &str, data: &str) {
     let mut file = File::create(path).unwrap();
-    file.write_all(data.as_bytes());
+    let _ = file.write_all(data.as_bytes());
 }
 
 pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>, command: &str, ) {
