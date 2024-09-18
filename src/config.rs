@@ -316,8 +316,8 @@ fn get_displays(config_data: &Value) -> Vec<Display> {
 fn get_templates(templates_data: Value) -> Vec<Template> {
     let mut templates: Vec<Template> = Vec::new();
     for raw_template in templates_data.as_array().unwrap() {
-        let temp_path = String::from(raw_template["template_path"].as_str().unwrap());
-        let conf_path = String::from(raw_template["config_path"].as_str().unwrap());
+        let temp_path = parse_path(raw_template["template_path"].as_str().unwrap());
+        let conf_path = parse_path(raw_template["config_path"].as_str().unwrap());
         let use_quotes = raw_template["use_quotes"].as_bool().unwrap();
         let use_sharps = raw_template["use_sharps"].as_bool().unwrap();
         let opacity = String::from(raw_template["opacity"].as_str().unwrap());
