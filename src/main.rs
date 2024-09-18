@@ -162,9 +162,8 @@ fn main() {
             let mut rng = thread_rng();
             let random_image = images.choose(&mut rng).cloned();
 
-            match random_image {
-                Some(random_image) => run(&random_image),
-                _ => {}
+            if let Some(ref random_image) = random_image {
+                run(random_image)
             }
         }
     } else if path.is_file() {

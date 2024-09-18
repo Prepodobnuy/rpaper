@@ -36,23 +36,40 @@ impl ArgvParser {
         }
         res
     }
-    fn cache_only(&self) -> bool {
-        let mut res = false;
-        if self.argv.len() <= 2 {
+
+    fn get_colors_path(&self, default_colors_path: &str) -> String {
+        let mut res = String::from(default_colors_path);
+
+        if !self.argv.contains(&String::from("--colors")) {
             return res;
         }
 
-        for param in self.argv.iter() {
-            match param.as_str() {
-                "--cache" => {
-                    res = true;
-                    break;
-                }
-                _ => {}
-            }
+        if let Some(index) = self.argv.iter().position(|s| s == "--colors") {
+            res = self.argv[index + 1].clone();
         }
 
         res
+    }
+
+    fn get_templates_path(&self, default_templates_path: &str) -> String {
+        let mut res = String::from(default_templates_path);
+
+        if !self.argv.contains(&String::from("--templates")) {
+            return res;
+        }
+
+        if let Some(index) = self.argv.iter().position(|s| s == "--templates") {
+            res = self.argv[index + 1].clone();
+        }
+
+        res
+    }
+
+    fn cache_only(&self) -> bool {
+        if self.argv.len() <= 2 {
+            return false;
+        }
+        self.argv.iter().any(|param| param == "--cache")
     }
 }
 
@@ -63,7 +80,7 @@ fn read_data(data_path: &str) -> Value {
 
     let data: Value = serde_json::from_str(&json_data).unwrap();
 
-    return data;
+    data
 }
 
 #[derive(Clone)]
@@ -108,44 +125,16 @@ pub struct ImageOperations {
     pub blur: f32,
 }
 
-impl ImageOperations {
-    pub fn new(
-        change_contrast: bool,
-        change_brightness: bool,
-        change_huerotate: bool,
-        change_blur: bool,
-        image_flip_h: bool,
-        image_flip_v: bool,
-        invert_image: bool,
-        contrast: f32,
-        brightness: i32,
-        huerotate: i32,
-        blur: f32,
-    ) -> Self {
-        ImageOperations {
-            change_contrast,
-            change_brightness,
-            change_huerotate,
-            change_blur,
-            image_flip_h,
-            image_flip_v,
-            invert_image,
-            contrast,
-            brightness,
-            huerotate,
-            blur,
-        }
-    }
-}
-
 impl Config {
     pub fn new(config_path: &str, argv_parser: ArgvParser) -> Self {
         // json raw data
         let config_data = read_data(config_path);
-        let templates_data =
-            read_data(&parse_path(config_data["templates_path"].as_str().unwrap()));
-        let colorvars_data =
-            read_data(&parse_path(config_data["variables_path"].as_str().unwrap()));
+        let templates_data = read_data(&parse_path(
+            &argv_parser.get_templates_path(config_data["templates_path"].as_str().unwrap()),
+        ));
+        let colorvars_data = read_data(&parse_path(
+            &argv_parser.get_templates_path(config_data["variables_path"].as_str().unwrap()),
+        ));
 
         // path
         let cached_images_path = parse_path(
@@ -165,7 +154,7 @@ impl Config {
         let wallpaper_resize_backend =
             String::from(config_data["wallpaper_resize_backend"].as_str().unwrap());
         //booleans
-        let  cache_colorscheme = config_data["cache_colorscheme"].as_bool().unwrap_or(true);
+        let cache_colorscheme = config_data["cache_colorscheme"].as_bool().unwrap_or(true);
         let mut apply_templates = config_data["apply_templates"].as_bool().unwrap_or(true);
         let cache_wallpaper = config_data["cache_wallpaper"].as_bool().unwrap_or(true);
         let mut set_wallpaper = config_data["set_wallpaper"].as_bool().unwrap_or(true);
@@ -237,7 +226,7 @@ fn get_image_operations(config_data: &Value) -> ImageOperations {
     let brightness = config_data["brightness"].as_i64().unwrap_or(0) as i32;
     let huerotate = config_data["huerotate"].as_i64().unwrap_or(0) as i32;
     let blur = config_data["blur"].as_f64().unwrap_or(0.0) as f32;
-    let image_operations = ImageOperations::new(
+    ImageOperations {
         change_contrast,
         change_brightness,
         change_huerotate,
@@ -249,8 +238,7 @@ fn get_image_operations(config_data: &Value) -> ImageOperations {
         brightness,
         huerotate,
         blur,
-    );
-    image_operations
+    }
 }
 
 fn get_displays(config_data: &Value) -> Vec<Display> {

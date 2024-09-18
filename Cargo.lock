@@ -906,7 +906,7 @@ dependencies = [
 
 [[package]]
 name = "rpaper"
-version = "0.1.270824"
+version = "0.1.180924"
 dependencies = [
  "color_space",
  "image 0.25.2",
