@@ -133,7 +133,7 @@ impl Config {
             &argv_parser.get_templates_path(config_data["templates_path"].as_str().unwrap()),
         ));
         let colorvars_data = read_data(&parse_path(
-            &argv_parser.get_templates_path(config_data["variables_path"].as_str().unwrap()),
+            &argv_parser.get_colors_path(config_data["variables_path"].as_str().unwrap()),
         ));
 
         // path
