@@ -118,11 +118,11 @@ fn get_colors_from_scheme(path: String) -> Vec<String> {
         res.push(String::from(color));
     }
 
-    return res;
+    res
 }
 
 fn apply_template(
-    template: Template, 
+    template: Template,
     variables: Vec<ColorVariable>,
     colors: Vec<String>,
 ) -> Result<(), io::Error> {
@@ -134,8 +134,7 @@ fn apply_template(
     for variable in &variables {
         let value = &colors[variable.value][1..];
 
-        let mut color =
-            format!("#{}{}", variable.process_colors(&value), template.opacity);
+        let mut color = format!("#{}{}", variable.process_colors(&value), template.opacity);
 
         if !template.use_sharps {
             color = String::from(&color[1..]);
@@ -167,20 +166,17 @@ pub fn apply_templates(
         let _template = template.clone();
         let local_colors = colors.to_vec();
         let local_variables = variables.to_vec();
-        let thread = thread::spawn(move || { 
-            apply_template(
-                _template,
-                local_variables,
-                local_colors,
-            )
-         });
+        let thread =
+            thread::spawn(move || apply_template(_template, local_variables, local_colors));
         threads.push(thread);
     }
 
     for thread in threads {
         match thread.join().unwrap() {
-            Ok(()) => {continue},
-            Err(err) => {println!("{}", err)}
+            Ok(()) => continue,
+            Err(err) => {
+                println!("{}", err)
+            }
         }
     }
 }

@@ -21,7 +21,7 @@ pub fn parse_path(path: &str) -> String {
     if &path[0..1] == "~" {
         return add_home_path_to_string(&path[2..]);
     }
-    return String::from(path);
+    String::from(path)
 }
 
 pub fn parse_command(command: &str, image_path: &str, display: &str) -> String {
@@ -58,7 +58,7 @@ pub fn get_image_name(image_path: &str) -> String {
             return String::from(name);
         }
     }
-    return String::from(image_path);
+    String::from(image_path)
 }
 
 pub fn get_img_ops_affected_name(image_name: &str, image_ops: &ImageOperations) -> String {
@@ -86,5 +86,5 @@ pub fn get_img_ops_affected_name(image_name: &str, image_ops: &ImageOperations) 
         image_name = format!("INV{}", image_name)
     }
 
-    return image_name;
+    image_name
 }

@@ -21,7 +21,7 @@ pub fn displays_max_width(displays: &Vec<Display>) -> u32 {
         }
     }
 
-    return res;
+    res
 }
 
 pub fn displays_max_height(displays: &Vec<Display>) -> u32 {
@@ -32,5 +32,5 @@ pub fn displays_max_height(displays: &Vec<Display>) -> u32 {
         }
     }
 
-    return res;
+    res
 }

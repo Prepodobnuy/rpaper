@@ -110,7 +110,8 @@ fn clamp_color(color: RGB, min_v: f32, max_v: f32) -> Vec<u8> {
     hsv.v = v as f64;
     let rgb = RGB::from(hsv);
     let vec = vec![rgb.r as u8, rgb.g as u8, rgb.b as u8];
-    return vec;
+
+    vec
 }
 
 fn lab_to_hsv(lab: Lab) -> HSV {
@@ -201,7 +202,5 @@ fn get_pallete(image: &RgbImage, accent_color: u32, min_v: f32, max_v: f32) -> V
         }
     }
 
-    let result = order_colors_by_hue(clusters, accent_color);
-
-    result
+    order_colors_by_hue(clusters, accent_color)
 }
