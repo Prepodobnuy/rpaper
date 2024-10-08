@@ -47,6 +47,7 @@ fn run(image_path: &str) {
         let _colorscheme_thread = thread::spawn(move || {
             if cache_colorscheme {
                 if !rwal.is_cached() {
+                    println!("caching colorscheme...");
                     let img = wallpaper::get_thumbed_image(
                         &img_path,
                         &image_ops,
@@ -59,6 +60,7 @@ fn run(image_path: &str) {
                 }
             }
             if apply_templates {
+                println!("applying templates...");
                 templates::apply_templates(templates, variables, color_scheme_file);
             }
         });
@@ -92,13 +94,14 @@ fn run(image_path: &str) {
                 );
 
                 if set_wallpaper {
+                    println!("setting wallpapers...");
                     wallpaper::set(
                         &displays,
                         &cached_wallpapers_paths,
                         &config.set_wallpaper_command,
                     );
                 }
-            }
+            };
         });
         threads.push(_wallpaper_thread);
     }
@@ -109,6 +112,10 @@ fn run(image_path: &str) {
 
 fn get_absolute_path(path: PathBuf) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path)
+}
+
+fn is_file_image(extension: &str) -> bool {
+    matches!(extension.to_lowercase().as_str(), "jpg" | "jpeg" | "webp" | "png" | "gif" | "bmp" | "tiff")
 }
 
 fn get_images_from_dir(dir: &str) -> Vec<String> {
@@ -126,11 +133,15 @@ fn get_images_from_dir(dir: &str) -> Vec<String> {
                     .to_string(),
             ))
         } else if file_type.is_file() {
-            res.push(
-                get_absolute_path(entry.path())
-                    .to_string_lossy()
-                    .to_string(),
-            )
+            if let Some(extension) = entry.path().extension() {
+                if is_file_image(extension.to_str().unwrap_or("")) {
+                    res.push(
+                        get_absolute_path(entry.path())
+                            .to_string_lossy()
+                            .to_string(),
+                    )
+                }
+            }
         }
     }
     res
@@ -138,13 +149,16 @@ fn get_images_from_dir(dir: &str) -> Vec<String> {
 
 fn main() {
     let argv: Vec<String> = env::args().collect();
-    if argv.len() == 1 {
+    if argv.len() == 1 || argv.iter().any(|arg| arg == "--help") {
+        utils::help_message();
         return;
     }
     let path = Path::new(&argv[1]);
     if path.is_dir() {
+        println!("looking for images...");
         let images = get_images_from_dir(&argv[1]);
         if argv.contains(&String::from("--cache")) {
+            println!("caching images...");
             for chunk in images.chunks(6) {
                 let mut threads = Vec::new();
 
@@ -163,6 +177,7 @@ fn main() {
             let random_image = images.choose(&mut rng).cloned();
 
             if let Some(ref random_image) = random_image {
+                println!("selected image: {}", &random_image);
                 run(random_image)
             }
         }

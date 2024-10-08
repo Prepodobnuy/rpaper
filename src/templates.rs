@@ -157,7 +157,6 @@ pub fn apply_templates(
     variables: Vec<ColorVariable>,
     color_scheme_path: String,
 ) {
-    println!("applying templates");
     let colors = get_colors_from_scheme(color_scheme_path);
 
     let mut threads = Vec::new();

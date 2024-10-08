@@ -5,7 +5,7 @@ use std::io::Read;
 
 use crate::displays::Display;
 use crate::templates::{ColorVariable, Template};
-use crate::utils::parse_path;
+use crate::utils::{parse_path, warn};
 
 pub struct ArgvParser {
     argv: Vec<String>,
@@ -37,39 +37,27 @@ impl ArgvParser {
         res
     }
 
-    fn get_colors_path(&self, default_colors_path: &str) -> String {
-        let mut res = String::from(default_colors_path);
-
-        if !self.argv.contains(&String::from("--colors")) {
-            return res;
-        }
-
-        if let Some(index) = self.argv.iter().position(|s| s == "--colors") {
-            res = self.argv[index + 1].clone();
-        }
-
-        res
-    }
-
-    fn get_templates_path(&self, default_templates_path: &str) -> String {
-        let mut res = String::from(default_templates_path);
-
-        if !self.argv.contains(&String::from("--templates")) {
-            return res;
-        }
-
-        if let Some(index) = self.argv.iter().position(|s| s == "--templates") {
-            res = self.argv[index + 1].clone();
-        }
-
-        res
-    }
-
     fn cache_only(&self) -> bool {
         if self.argv.len() <= 2 {
             return false;
         }
         self.argv.iter().any(|param| param == "--cache")
+    }
+
+    fn get_boolean_data(&self, flag: &str) -> Option<bool> {
+        self.argv.iter().position(|target| target == flag)
+        .and_then(|index| {
+            self.argv.get(index + 1).and_then(|value| match value.as_str() {
+                "true" => Some(true),
+                "false" => Some(false),
+                _ => None,
+            })
+        })
+    }
+
+    fn get_string_data(&self, flag: &str) -> Option<String> {
+        self.argv.iter().position(|target| target == flag)
+        .and_then(|index| self.argv.get(index + 1).map(|value| value.clone()))
     }
 }
 
@@ -129,35 +117,97 @@ impl Config {
     pub fn new(config_path: &str, argv_parser: ArgvParser) -> Self {
         // json raw data
         let config_data = read_data(config_path);
-        let templates_data = read_data(&parse_path(
-            &argv_parser.get_templates_path(config_data["templates_path"].as_str().unwrap()),
-        ));
-        let colorvars_data = read_data(&parse_path(
-            &argv_parser.get_colors_path(config_data["variables_path"].as_str().unwrap()),
-        ));
+        let templates_data = read_data({&parse_path(
+            &match argv_parser.get_string_data("--temp-path") {
+                Some(result) => result,
+                None => {
+                    match config_data["templates_path"].as_str() {
+                        Some(value) => value.to_string(),
+                        None => panic!("Fatal Error while reading templates_path"),
+                    }
+                }
+            }
+        )});
+        let colorvars_data = read_data({&parse_path(
+            &match argv_parser.get_string_data("--vars-path") {
+                Some(result) => result,
+                None => {
+                    match config_data["variables_path"].as_str() {
+                        Some(value) => value.to_string(),
+                        None => panic!("Fatal Error while reading variables_path"),
+                    }
+                }
+            }
+        )});
 
         // path
-        let cached_images_path = parse_path(
-            config_data["cached_wallpapers_dir"]
-                .as_str()
-                .unwrap_or("~/.config/rpaper/templates.json"),
-        );
-        let color_scheme_file = parse_path(
-            config_data["color_scheme_file"]
-                .as_str()
-                .unwrap_or("~/.config/rpaper/color_variables.json"),
-        );
+        let cached_images_path = {parse_path(
+            &match argv_parser.get_string_data("--cache-dir") {
+                Some(result) => result,
+                None => {
+                    match config_data["cached_wallpapers_dir"].as_str() {
+                        Some(value) => value.to_string(),
+                        None => {
+                            warn("cached_wallpapers_dir is not set");
+                            "~/.cache/rpaper/Wallpapers".to_string()
+                        },
+                    }
+                }
+            })
+        };
+        let color_scheme_file = {parse_path(
+            &match argv_parser.get_string_data("--color-scheme-file") {
+                Some(result) => result,
+                None => {
+                    match config_data["color_scheme_file"].as_str() {
+                        Some(value) => value.to_string(),
+                        None => {
+                            warn("color_scheme_file is not set");
+                            "~/.config/rpaper/color_variables.json".to_string()
+                        },
+                    }
+                }
+            })
+        };
         // command
-        let set_wallpaper_command =
-            String::from(config_data["set_wallpaper_command"].as_str().unwrap());
-
+        let set_wallpaper_command = {
+            match argv_parser.get_string_data("--set-wallpaper-command") {
+                Some(result) => result,
+                None => {
+                    match config_data["set_wallpaper_command"].as_str() {
+                        Some(value) => value.to_string(),
+                        None => panic!("Fatal Error while reading set_wallpaper_command"),
+                    }
+                }
+            }
+        };
         let wallpaper_resize_backend =
             String::from(config_data["wallpaper_resize_backend"].as_str().unwrap());
         //booleans
-        let cache_colorscheme = config_data["cache_colorscheme"].as_bool().unwrap_or(true);
-        let mut apply_templates = config_data["apply_templates"].as_bool().unwrap_or(true);
-        let cache_wallpaper = config_data["cache_wallpaper"].as_bool().unwrap_or(true);
-        let mut set_wallpaper = config_data["set_wallpaper"].as_bool().unwrap_or(true);
+        let cache_colorscheme = {
+            match argv_parser.get_boolean_data("--cache-colorscheme") {
+                Some(result) => result,
+                None => {config_data["cache_colorscheme"].as_bool().unwrap_or(true)}
+            }
+        };
+        let mut apply_templates = {
+            match argv_parser.get_boolean_data("--apply-templates") {
+                Some(result) => {result}
+                None => {config_data["apply_templates"].as_bool().unwrap_or(true)}
+            }
+        };
+        let cache_wallpaper = {
+            match argv_parser.get_boolean_data("--cache-wallpapers") {
+                Some(result) => {result}
+                None => {config_data["cache_wallpaper"].as_bool().unwrap_or(true)}
+            }
+        };  
+        let mut set_wallpaper = {
+            match argv_parser.get_boolean_data("--set-wallpaper") {
+                Some(result) => {result}
+                None => {config_data["set_wallpaper"].as_bool().unwrap_or(true)}
+            }
+        };
         if argv_parser.cache_only() {
             apply_templates = false;
             set_wallpaper = false;
@@ -178,7 +228,7 @@ impl Config {
         // ImageOperations
         let image_operations = get_image_operations(&config_data);
         // displays
-        let displays = get_displays(&config_data);
+        let displays = get_displays(&config_data, &argv_parser);
         // templates
         let templates = get_templates(templates_data);
         // variables
@@ -202,13 +252,10 @@ impl Config {
             rwal_accent_color,
             rwal_clamp_min_v,
             rwal_clamp_max_v,
-            //ImageOperations
+
             image_operations,
-            //displays
             displays,
-            //templates
             templates,
-            //variable
             variables,
         }
     }
@@ -241,14 +288,38 @@ fn get_image_operations(config_data: &Value) -> ImageOperations {
     }
 }
 
-fn get_displays(config_data: &Value) -> Vec<Display> {
+fn get_displays(config_data: &Value, argv_parser: &ArgvParser) -> Vec<Display> {
     let mut displays: Vec<Display> = Vec::new();
+    
+    if let Some(argv_data) = argv_parser.get_string_data("--displays") {
+        for raw_display in argv_data.split(",") {
+            let display_params: Vec<&str> = raw_display.split(":").collect();
+            
+            let name: String = display_params[0].to_string();
+            let w: u32 = display_params[1].parse().unwrap_or_else(|_| {
+                panic!("Invalid {} width\nPerhaps you forgot to specify a value. Remember that the value must be an integer.", name)
+            });
+            let h: u32 = display_params[2].parse().unwrap_or_else(|_| {
+                panic!("Invalid {} height\nPerhaps you forgot to specify a value. Remember that the value must be an integer.", name)
+            });
+            let x: u32 = display_params[3].parse().unwrap_or_else(|_| {
+                panic!("Invalid {} x position\nPerhaps you forgot to specify a value. Remember that the value must be an integer.", name)
+            });
+            let y: u32 = display_params[4].parse().unwrap_or_else(|_| {
+                panic!("Invalid {} y position\nPerhaps you forgot to specify a value. Remember that the value must be an integer.", name)
+            });
+
+            displays.push(Display::new(w, h, x, y, name))
+        }
+        return displays;
+    }
+    
     for raw_display in config_data["displays"].as_array().unwrap() {
+        let name = String::from(raw_display["name"].as_str().unwrap());
         let w = raw_display["width"].as_u64().unwrap() as u32;
         let h = raw_display["height"].as_u64().unwrap() as u32;
         let x = raw_display["margin-left"].as_u64().unwrap() as u32;
         let y = raw_display["margin-top"].as_u64().unwrap() as u32;
-        let name = String::from(raw_display["name"].as_str().unwrap());
 
         displays.push(Display::new(w, h, x, y, name))
     }
