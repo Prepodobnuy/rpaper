@@ -350,6 +350,9 @@ fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
         let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
         let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
         let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
+        let constant_value = String::from(raw_variable["constant"].as_str().unwrap_or(""));
+        let mut is_constant = false;
+        if constant_value != "" {is_constant = true};
         if name.contains("{br}") {
             let oldname = name;
             name = oldname.replace("{br}", "");
@@ -359,6 +362,8 @@ fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
                     value,
                     brightness - (i * 10),
                     inverted,
+                    is_constant,
+                    constant_value.clone(),
                 ));
             }
             for i in 1..11 {
@@ -367,10 +372,12 @@ fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
                     value,
                     brightness + (i * 10),
                     inverted,
+                    is_constant,
+                    constant_value.clone(),
                 ));
             }
         }
-        variables.push(ColorVariable::new(name, value, brightness, inverted));
+        variables.push(ColorVariable::new(name, value, brightness, inverted, is_constant, constant_value));
     }
     variables
 }

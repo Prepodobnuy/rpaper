@@ -58,15 +58,19 @@ pub struct ColorVariable {
     pub value: usize,
     pub brightness: i32,
     pub inverted: bool,
+    pub is_constant: bool,
+    pub constant_value: String,
 }
 
 impl ColorVariable {
-    pub fn new(name: String, value: usize, brightness: i32, inverted: bool) -> Self {
+    pub fn new(name: String, value: usize, brightness: i32, inverted: bool, is_constant: bool, constant_value: String) -> Self {
         ColorVariable {
             name,
             value,
             brightness,
             inverted,
+            is_constant,
+            constant_value,
         }
     }
 
@@ -134,7 +138,13 @@ fn apply_template(
     for variable in &variables {
         let value = &colors[variable.value][1..];
 
-        let mut color = format!("#{}{}", variable.process_colors(&value), template.opacity);
+        let mut color: String;
+
+        if variable.is_constant {
+            color = format!("#{}{}", variable.process_colors(&variable.constant_value), template.opacity);
+        } else {
+            color = format!("#{}{}", variable.process_colors(&value), template.opacity);
+        }
 
         if !template.use_sharps {
             color = String::from(&color[1..]);
