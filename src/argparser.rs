@@ -1,5 +1,6 @@
 use std::env;
 
+#[derive(Clone)]
 pub struct Args {
     pub rpaper_temp_path: Option<String>,
     pub rpaper_vars_path: Option<String>,
@@ -24,12 +25,12 @@ pub struct Args {
     pub image_processing_hue: Option<i32>,
     pub image_processing_blur: Option<f32>,
 
-    pub rwal_cache_dir: Option<bool>,
+    pub rwal_cache_dir: Option<String>,
     pub rwal_thumb_w: Option<u32>,
     pub rwal_thumb_h: Option<u32>,
     pub rwal_accent: Option<u32>,
-    pub rwal_clamp_min: Option<u32>,
-    pub rwal_clamp_max: Option<u32>,
+    pub rwal_clamp_min: Option<f32>,
+    pub rwal_clamp_max: Option<f32>,
 
     pub displays: Option<String>,
     pub templates: Option<String>,
@@ -100,12 +101,12 @@ impl Args {
                 "--hue" =>              image_processing_hue = get_i32(value),
                 "--blur" =>             image_processing_blur = get_f32(value),
 
-                "--r-cache-dir" => rwal_cache_dir = get_bool(value),
+                "--r-cache-dir" => rwal_cache_dir = get_string(value),
                 "thumb_w" =>       rwal_thumb_w = get_u32(value),
                 "thumb_h" =>       rwal_thumb_h = get_u32(value),
                 "accent" =>        rwal_accent = get_u32(value),
-                "clamp_min" =>     rwal_clamp_min = get_u32(value),
-                "clamp_max" =>     rwal_clamp_max = get_u32(value),
+                "clamp_min" =>     rwal_clamp_min = get_f32(value),
+                "clamp_max" =>     rwal_clamp_max = get_f32(value),
                 
                 "--displays" | "-d" =>  displays = get_string(value),
                 "--templates" | "-t" => templates = get_string(value),

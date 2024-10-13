@@ -1,37 +1,43 @@
-use serde_json::Value;
-use std::env;
 use std::fs::File;
 use std::io::Read;
 
+use serde_json::Value;
+
 use crate::displays::Display;
 use crate::templates::{ColorVariable, Template};
-use crate::utils::{parse_path, warn};
+use crate::utils::parse_path;
+
+use crate::argparser::Args;
 
 #[derive(Clone)]
 pub struct Config {
-    pub cached_images_path: String,
-    pub color_scheme_file: String,
+    pub cache_dir: String,
+    pub scheme_file: String,
 
-    pub set_wallpaper_command: String,
-    pub wallpaper_resize_backend: String,
+    pub wall_command: String,
+    pub resize_algorithm: String,
 
-    pub cache_colorscheme: bool,
-    pub apply_templates: bool,
-    pub cache_wallpaper: bool,
-    pub set_wallpaper: bool,
-
-    pub rwal_cache_dir: String,
-    pub rwal_thumb: (u32, u32),
-    pub rwal_accent_color: u32,
-    pub rwal_clamp_min_v: f32,
-    pub rwal_clamp_max_v: f32,
+    pub cache_scheme: bool,
+    pub cache_walls: bool,
+    pub set_templates: bool,
+    pub set_walls: bool,
 
     pub image_operations: ImageOperations,
+    pub rwal_params: RwalParams,
 
     pub displays: Vec<Display>,
-
     pub templates: Vec<Template>,
     pub variables: Vec<ColorVariable>,
+}
+
+#[derive(Clone)]
+pub struct RwalParams {
+    pub cache_dir: String,
+    pub thumb_w: u32,
+    pub thumb_h: u32,
+    pub accent: u32,
+    pub clamp_min: f32,
+    pub clamp_max: f32,
 }
 
 #[derive(Clone)]
@@ -40,156 +46,91 @@ pub struct ImageOperations {
     pub change_brightness: bool,
     pub change_huerotate: bool,
     pub change_blur: bool,
-    pub image_flip_h: bool,
-    pub image_flip_v: bool,
-    pub invert_image: bool,
+    pub flip_h: bool,
+    pub flip_v: bool,
+    pub invert: bool,
     pub contrast: f32,
-    pub brightness: i32,
+    pub brightness: f32,
     pub huerotate: i32,
     pub blur: f32,
 }
 
 impl Config {
-    pub fn new(config_path: &str, argv_parser: ArgvParser) -> Self {
-        // json raw data
+    pub fn new(config_path: &str, cache_only: bool) -> Self {
+        let args = Args::new();
+        
         let config_data = read_data(config_path);
-        let templates_data = read_data({&parse_path(
-            &match argv_parser.get_string_data("--temp-path") {
-                Some(result) => result,
-                None => {
-                    match config_data["templates_path"].as_str() {
-                        Some(value) => value.to_string(),
-                        None => panic!("Fatal Error while reading templates_path"),
-                    }
-                }
-            }
-        )});
-        let colorvars_data = read_data({&parse_path(
-            &match argv_parser.get_string_data("--vars-path") {
-                Some(result) => result,
-                None => {
-                    match config_data["variables_path"].as_str() {
-                        Some(value) => value.to_string(),
-                        None => panic!("Fatal Error while reading variables_path"),
-                    }
-                }
-            }
-        )});
+        let templates_data = read_data(&parse_path(match &args.rpaper_temp_path {
+            Some(path) => path,
+            None => config_data["temp_path"].as_str().unwrap(),
+        }));
+        let vars_data = read_data(&parse_path(match &args.rpaper_vars_path {
+            Some(path) => path,
+            None => config_data["vars_path"].as_str().unwrap(),
+        }));
 
-        // path
-        let cached_images_path = {parse_path(
-            &match argv_parser.get_string_data("--cache-dir") {
-                Some(result) => result,
-                None => {
-                    match config_data["cached_wallpapers_dir"].as_str() {
-                        Some(value) => value.to_string(),
-                        None => {
-                            warn("cached_wallpapers_dir is not set");
-                            "~/.cache/rpaper/Wallpapers".to_string()
-                        },
-                    }
-                }
-            })
+        let cache_dir = parse_path(match &args.rpaper_cache_dir {
+            Some(path) => path,
+            None => config_data["cache_dir"].as_str().unwrap_or("~/.cache/rpaper/Wallpapers"),
+        });
+        let scheme_file = parse_path(match &args.rpaper_scheme_file {
+            Some(path) => path,
+            None => config_data["scheme_file"].as_str().unwrap_or("~/.config/rpaper/color_variables.json"),
+        });
+        
+        let wall_command = (match &args.rpaper_wall_command {
+            Some(result) => result,
+            None => config_data["wall_command"].as_str().unwrap(),    
+        }).to_string();
+        let resize_algorithm = (match &args.rpaper_resize_algorithm {
+            Some(result) => result,
+            None => config_data["resize_algorithm"].as_str().unwrap_or("Lanczos3"),
+        }).to_string();
+        
+        let cache_scheme = match args.rpaper_cache_scheme {
+            Some(result) => result,
+            None => config_data["cache_scheme"].as_bool().unwrap_or(true),
         };
-        let color_scheme_file = {parse_path(
-            &match argv_parser.get_string_data("--color-scheme-file") {
-                Some(result) => result,
-                None => {
-                    match config_data["color_scheme_file"].as_str() {
-                        Some(value) => value.to_string(),
-                        None => {
-                            warn("color_scheme_file is not set");
-                            "~/.config/rpaper/color_variables.json".to_string()
-                        },
-                    }
-                }
-            })
-        };
-        // command
-        let set_wallpaper_command = {
-            match argv_parser.get_string_data("--set-wallpaper-command") {
-                Some(result) => result,
-                None => {
-                    match config_data["set_wallpaper_command"].as_str() {
-                        Some(value) => value.to_string(),
-                        None => panic!("Fatal Error while reading set_wallpaper_command"),
-                    }
-                }
-            }
-        };
-        let wallpaper_resize_backend =
-            String::from(config_data["wallpaper_resize_backend"].as_str().unwrap());
-        //booleans
-        let cache_colorscheme = {
-            match argv_parser.get_boolean_data("--cache-colorscheme") {
-                Some(result) => result,
-                None => {config_data["cache_colorscheme"].as_bool().unwrap_or(true)}
-            }
-        };
-        let mut apply_templates = {
-            match argv_parser.get_boolean_data("--apply-templates") {
-                Some(result) => {result}
-                None => {config_data["apply_templates"].as_bool().unwrap_or(true)}
-            }
-        };
-        let cache_wallpaper = {
-            match argv_parser.get_boolean_data("--cache-wallpapers") {
-                Some(result) => {result}
-                None => {config_data["cache_wallpaper"].as_bool().unwrap_or(true)}
-            }
+        let cache_walls = match args.rpaper_cache_walls {
+            Some(result) => {result}
+            None => config_data["cache_walls"].as_bool().unwrap_or(true),
         };  
-        let mut set_wallpaper = {
-            match argv_parser.get_boolean_data("--set-wallpaper") {
-                Some(result) => {result}
-                None => {config_data["set_wallpaper"].as_bool().unwrap_or(true)}
-            }
+        let mut set_templates = match args.rpaper_set_templates {
+            Some(result) => {result}
+            None => config_data["set_templates"].as_bool().unwrap_or(true),
         };
-        if argv_parser.cache_only() {
-            apply_templates = false;
-            set_wallpaper = false;
+        let mut set_walls = match args.rpaper_set_walls {
+            Some(result) => {result}
+            None => config_data["set_walls"].as_bool().unwrap_or(true),
+        };
+        if cache_only {
+            set_templates = false;
+            set_walls = false;
         }
 
-        //rwal
-        let rwal_cache_dir = parse_path(
-            config_data["rwal_cache_dir"]
-                .as_str()
-                .unwrap_or("~/.cache/rpaper/rwal"),
-        );
-        let rwal_thumb_w = config_data["rwal_thumb_w"].as_u64().unwrap_or(200) as u32;
-        let rwal_thumb_h = config_data["rwal_thumb_h"].as_u64().unwrap_or(200) as u32;
-        let rwal_thumb = (rwal_thumb_w, rwal_thumb_h);
-        let rwal_accent_color = config_data["rwal_accent_color"].as_u64().unwrap_or(5) as u32;
-        let rwal_clamp_min_v = config_data["rwal_clamp_min_v"].as_f64().unwrap_or(170.0) as f32;
-        let rwal_clamp_max_v = config_data["rwal_clamp_max_v"].as_f64().unwrap_or(200.0) as f32;
-        // ImageOperations
-        let image_operations = get_image_operations(&config_data);
-        // displays
-        let displays = get_displays(&config_data, &argv_parser);
-        // templates
+        
+        let rwal_params = get_rwal_params(&config_data, &args);
+        let image_operations = get_image_operations(&config_data, &args);
+
+        let displays = get_displays(&config_data, args.displays);
         let templates = get_templates(templates_data);
-        // variables
-        let variables = get_variables(colorvars_data);
+        let variables = get_variables(vars_data);
 
         Config {
-            //path
-            cached_images_path,
-            color_scheme_file,
-            //command
-            set_wallpaper_command,
-            wallpaper_resize_backend,
-            //booleans
-            cache_colorscheme,
-            apply_templates,
-            cache_wallpaper,
-            set_wallpaper,
-            //rwal
-            rwal_cache_dir,
-            rwal_thumb,
-            rwal_accent_color,
-            rwal_clamp_min_v,
-            rwal_clamp_max_v,
+            cache_dir,
+            scheme_file,
+
+            wall_command,
+            resize_algorithm,
+
+            cache_scheme,
+            cache_walls,
+            set_templates,
+            set_walls,
 
             image_operations,
+            rwal_params,
+
             displays,
             templates,
             variables,
@@ -197,26 +138,63 @@ impl Config {
     }
 }
 
-fn get_image_operations(config_data: &Value) -> ImageOperations {
-    let change_contrast = config_data["change_contrast"].as_bool().unwrap_or(false);
-    let change_brightness = config_data["change_brightness"].as_bool().unwrap_or(false);
-    let change_huerotate = config_data["change_huerotate"].as_bool().unwrap_or(false);
-    let change_blur = config_data["change_blur"].as_bool().unwrap_or(false);
-    let image_flip_h = config_data["image_flip_h"].as_bool().unwrap_or(false);
-    let image_flip_v = config_data["image_flip_v"].as_bool().unwrap_or(false);
-    let invert_image = config_data["invert_image"].as_bool().unwrap_or(false);
-    let contrast = config_data["contrast"].as_f64().unwrap_or(0.0) as f32;
-    let brightness = config_data["brightness"].as_i64().unwrap_or(0) as i32;
-    let huerotate = config_data["huerotate"].as_i64().unwrap_or(0) as i32;
-    let blur = config_data["blur"].as_f64().unwrap_or(0.0) as f32;
+fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
+    let change_contrast = match args.image_processing_change_contrast {
+        Some(val) => val,
+        None => config_data["imgp_change_contrast"].as_bool().unwrap_or(false),
+    };
+    let change_brightness = match args.image_processing_change_brigtness {
+        Some(val) => val,
+        None => config_data["imgp_change_brightness"].as_bool().unwrap_or(false),
+    };
+    let change_huerotate = match args.image_processing_change_hue {
+        Some(val) => val,
+        None => config_data["imgp_change_huerotate"].as_bool().unwrap_or(false),
+    };
+    let change_blur = match args.image_processing_change_blur {
+        Some(val) => val,
+        None => config_data["imgp_change_blur"].as_bool().unwrap_or(false),
+    };
+    let flip_h = match args.image_processing_h_flip {
+        Some(val) => val,
+        None => config_data["imgp_flip_h"].as_bool().unwrap_or(false),
+    };
+    let flip_v = match args.image_processing_v_flip {
+        Some(val) => val,
+        None => config_data["imgp_flip_v"].as_bool().unwrap_or(false),
+    };
+    let invert = match args.image_processing_invert {
+        Some(val) => val,
+        None => config_data["imgp_invert"].as_bool().unwrap_or(false),
+    };
+    
+    
+    let contrast = match args.image_processing_contrast {
+        Some(val) => val,
+        None => config_data["contrast"].as_f64().unwrap_or(0.0) as f32,
+    };
+    let brightness = match args.image_processing_brigtness {
+        Some(val) => val,
+        None => config_data["brightness"].as_f64().unwrap_or(0.0) as f32,
+    };
+    let huerotate = match args.image_processing_hue {
+        Some(val) => val,
+        None => config_data["huerotate"].as_i64().unwrap_or(0) as i32,
+    };
+    let blur = match args.image_processing_blur {
+        Some(val) => val,
+        None => config_data["blur"].as_f64().unwrap_or(0.0) as f32,
+    };
+    
     ImageOperations {
         change_contrast,
         change_brightness,
         change_huerotate,
         change_blur,
-        image_flip_h,
-        image_flip_v,
-        invert_image,
+        flip_h,
+        flip_v,
+        invert,
+
         contrast,
         brightness,
         huerotate,
@@ -224,11 +202,46 @@ fn get_image_operations(config_data: &Value) -> ImageOperations {
     }
 }
 
-fn get_displays(config_data: &Value, argv_parser: &ArgvParser) -> Vec<Display> {
+fn get_rwal_params(config_data: &Value, args: &Args) -> RwalParams {
+    let cache_dir = parse_path(match &args.rwal_cache_dir {
+        Some(val) => val.as_str(),
+        None => config_data["rwal_cache_dir"].as_str().unwrap_or("~/.cache/rpaper/rwal"),
+    });
+    let thumb_w = match args.rwal_thumb_w {
+        Some(val) => val,
+        None => config_data["rwal_thumb_w"].as_u64().unwrap_or(200) as u32,
+    };
+    let thumb_h = match args.rwal_thumb_h {
+        Some(val) => val,
+        None => config_data["rwal_thumb_h"].as_u64().unwrap_or(200) as u32,
+    };
+    let accent = match args.rwal_accent {
+        Some(val) => val,
+        None => config_data["rwal_accent_color"].as_u64().unwrap_or(5) as u32,
+    };
+    let clamp_min = match args.rwal_clamp_min {
+        Some(val) => val,
+        None => config_data["rwal_clamp_min"].as_f64().unwrap_or(170.0) as f32,
+    };
+    let clamp_max = match args.rwal_clamp_max {
+        Some(val) => val,
+        None => config_data["rwal_clamp_max"].as_f64().unwrap_or(170.0) as f32,
+    };
+    RwalParams {
+        cache_dir,
+        thumb_w,
+        thumb_h,
+        accent,
+        clamp_min,
+        clamp_max,
+    }
+}
+
+fn get_displays(config_data: &Value, raw_displays: Option<String>) -> Vec<Display> {
     let mut displays: Vec<Display> = Vec::new();
     
-    if let Some(argv_data) = argv_parser.get_string_data("--displays") {
-        for raw_display in argv_data.split(",") {
+    if let Some(display_data) = raw_displays {
+        for raw_display in display_data.split(",") {
             let display_params: Vec<&str> = raw_display.split(":").collect();
             
             let name: String = display_params[0].to_string();
@@ -279,9 +292,9 @@ fn get_templates(templates_data: Value) -> Vec<Template> {
     templates
 }
 
-fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
-    let mut variables: Vec<ColorVariable> = Vec::new();
-    for raw_variable in colorvars_data.as_array().unwrap() {
+fn get_variables(vars_data: Value) -> Vec<ColorVariable> {
+    let mut vars: Vec<ColorVariable> = Vec::new();
+    for raw_variable in vars_data.as_array().unwrap() {
         let mut name = String::from(raw_variable["name"].as_str().unwrap());
         let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
         let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
@@ -293,7 +306,7 @@ fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
             let oldname = name;
             name = oldname.replace("{br}", "");
             for i in 1..11 {
-                variables.push(ColorVariable::new(
+                vars.push(ColorVariable::new(
                     oldname.replace("{br}", &format!("d{}", i)),
                     value,
                     brightness - (i * 10),
@@ -303,7 +316,7 @@ fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
                 ));
             }
             for i in 1..11 {
-                variables.push(ColorVariable::new(
+                vars.push(ColorVariable::new(
                     oldname.replace("{br}", &format!("l{}", i)),
                     value,
                     brightness + (i * 10),
@@ -313,7 +326,17 @@ fn get_variables(colorvars_data: Value) -> Vec<ColorVariable> {
                 ));
             }
         }
-        variables.push(ColorVariable::new(name, value, brightness, inverted, is_constant, constant_value));
+        vars.push(ColorVariable::new(name, value, brightness, inverted, is_constant, constant_value));
     }
-    variables
+    vars
+}
+
+fn read_data(data_path: &str) -> Value {
+    let mut file = File::open(data_path).unwrap();
+    let mut json_data = String::new();
+    file.read_to_string(&mut json_data).unwrap();
+
+    let data: Value = serde_json::from_str(&json_data).unwrap();
+
+    data
 }
