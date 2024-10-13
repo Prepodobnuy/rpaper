@@ -14,6 +14,7 @@ mod rwal;
 mod templates;
 mod utils;
 mod wallpaper;
+mod argparser;
 
 fn run(image_path: &str) {
     let argv_parser = ArgvParser::new();
