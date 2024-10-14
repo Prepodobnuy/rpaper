@@ -76,7 +76,12 @@ impl Args {
         let mut variables = None;
 
         for (i, arg) in args.clone().into_iter().enumerate() {
-            let value = Some(args[i+1].clone());
+            let value; // OMG WHAT A HECK
+            if i == args.len() - 1 {
+                value = None;
+            } else {
+                value = Some(args[i+1].clone());
+            }
             match arg.as_str() {
                 "--temp-path" =>          rpaper_temp_path = get_string(value),
                 "--vars-path" =>          rpaper_vars_path = get_string(value),
