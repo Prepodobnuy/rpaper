@@ -33,8 +33,8 @@ pub struct Args {
     pub rwal_clamp_max: Option<f32>,
 
     pub displays: Option<String>,
-    pub templates: Option<String>,
-    pub variables: Option<String>,
+    pub templates: Option<String>, // TODO implement a one-line variation of writing templates
+    pub variables: Option<String>, // TODO implement a one-line variation of writing variables
 }
 
 impl Args {

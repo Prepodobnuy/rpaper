@@ -76,24 +76,20 @@ pub fn get_img_ops_affected_name(image_name: &str, image_ops: &ImageOperations) 
     if image_ops.change_blur {
         image_name = format!("BLUR{}{}", image_ops.blur, image_name)
     }
-    if image_ops.image_flip_h {
+    if image_ops.flip_h {
         image_name = format!("H_FL{}", image_name)
     }
-    if image_ops.image_flip_v {
+    if image_ops.flip_v {
         image_name = format!("V_FL{}", image_name)
     }
-    if image_ops.invert_image {
+    if image_ops.invert {
         image_name = format!("INV{}", image_name)
     }
 
     image_name
 }
 
-pub fn warn(message: &str) {
-    println!("[WARN]  {}", message);
-}
-
-pub fn help_message() {
+pub fn help_message() { // TODO rewrite help message. Almost everything written here is deprecated LOL
     let help_message = r#"Usage:
   rpaper <path/to/dir/with/images>|<path/to/image> -flag, --second-flag
 --help                                          - display this message

@@ -58,7 +58,7 @@ pub fn get_image(
         _image = _image.adjust_contrast(image_ops.contrast)
     }
     if image_ops.change_brightness {
-        _image = _image.brighten(image_ops.brightness)
+        _image = _image.brighten(image_ops.brightness as i32) // TODO fix this heck, britness must be an i32 not f32
     }
     if image_ops.change_huerotate {
         _image = _image.huerotate(image_ops.huerotate)
@@ -66,13 +66,13 @@ pub fn get_image(
     if image_ops.change_blur {
         _image = _image.blur(image_ops.blur)
     }
-    if image_ops.image_flip_h {
+    if image_ops.flip_h {
         _image = _image.fliph()
     }
-    if image_ops.image_flip_v {
+    if image_ops.flip_v {
         _image = _image.flipv()
     }
-    if image_ops.invert_image {
+    if image_ops.invert {
         _image.invert()
     }
     _image
@@ -85,7 +85,7 @@ pub fn get_thumbed_image(img_path: &str, image_ops: &ImageOperations, w: u32, h:
         _image = _image.adjust_contrast(image_ops.contrast)
     }
     if image_ops.change_brightness {
-        _image = _image.brighten(image_ops.brightness)
+        _image = _image.brighten(image_ops.brightness as i32) // 61 line lol
     }
     if image_ops.change_huerotate {
         _image = _image.huerotate(image_ops.huerotate)
@@ -93,13 +93,13 @@ pub fn get_thumbed_image(img_path: &str, image_ops: &ImageOperations, w: u32, h:
     if image_ops.change_blur {
         _image = _image.blur(image_ops.blur)
     }
-    if image_ops.image_flip_h {
+    if image_ops.flip_h {
         _image = _image.fliph()
     }
-    if image_ops.image_flip_v {
+    if image_ops.flip_v {
         _image = _image.flipv()
     }
-    if image_ops.invert_image {
+    if image_ops.invert {
         _image.invert()
     }
     _image.to_rgb8()

@@ -6,7 +6,7 @@ use std::thread;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
-use crate::config::{ArgvParser, Config};
+use crate::config::Config;
 
 mod config;
 mod displays;
@@ -17,33 +17,36 @@ mod wallpaper;
 mod argparser;
 
 fn run(image_path: &str) {
-    let argv_parser = ArgvParser::new();
+    let argv: Vec<String> = env::args().collect();
 
     let default_config_path: String = utils::parse_path("~/.config/rpaper/config.json");
-    let config_path = argv_parser.get_config_path(default_config_path);
+    let config_path = argv.iter().position(|s| s == "--conf").and_then(|i| argv.get(i + 1)).unwrap_or(&default_config_path).to_string();
     let image_path = String::from(image_path);
     let image_name = utils::get_image_name(&image_path);
 
-    let config = Config::new(&config_path, argv_parser);
+    let config = Config::new(&config_path, argv.iter().any(|s| s == "--cache"));
 
     let mut threads = Vec::new();
 
-    let cache_colorscheme = config.cache_colorscheme;
-    let apply_templates = config.apply_templates;
+    let cache_colorscheme = config.cache_scheme;
+    let cache_wallpaper = config.cache_walls;
+    let apply_templates = config.set_templates;
+    let set_wallpaper = config.set_walls;
+
     if cache_colorscheme || apply_templates {
         // colorscheme & templates processing
         let image_ops = config.image_operations.clone();
         let img_path = image_path.clone();
-        let color_scheme_file = config.color_scheme_file;
+        let color_scheme_file = config.scheme_file;
         let templates = config.templates;
         let variables = config.variables;
         let rwal = rwal::Rwal::new(
             &utils::get_img_ops_affected_name(&image_name, &image_ops),
-            &config.rwal_cache_dir,
-            config.rwal_thumb,
-            config.rwal_accent_color,
-            config.rwal_clamp_min_v,
-            config.rwal_clamp_max_v,
+            &config.rwal_params.cache_dir,
+            (config.rwal_params.thumb_w, config.rwal_params.thumb_h),
+            config.rwal_params.accent,
+            config.rwal_params.clamp_min,
+            config.rwal_params.clamp_max,
         );
         let _colorscheme_thread = thread::spawn(move || {
             if cache_colorscheme {
@@ -68,8 +71,6 @@ fn run(image_path: &str) {
         threads.push(_colorscheme_thread);
     }
 
-    let cache_wallpaper = config.cache_wallpaper;
-    let set_wallpaper = config.set_wallpaper;
     if cache_wallpaper {
         // wallpapers processing
         let image_path = image_path.clone();
@@ -79,9 +80,9 @@ fn run(image_path: &str) {
             wallpaper::get_cached_images_names(&displays, &image_name, &image_ops);
         let cached_wallpapers_paths = wallpaper::get_cached_images_paths(
             &cached_wallpapers_names,
-            &config.cached_images_path,
+            &config.cache_dir,
         );
-        let image_resize_algorithm = config.wallpaper_resize_backend.clone();
+        let image_resize_algorithm = config.resize_algorithm.clone();
 
         let _wallpaper_thread = thread::spawn(move || {
             if cache_wallpaper {
@@ -99,7 +100,7 @@ fn run(image_path: &str) {
                     wallpaper::set(
                         &displays,
                         &cached_wallpapers_paths,
-                        &config.set_wallpaper_command,
+                        &config.wall_command,
                     );
                 }
             };
@@ -158,7 +159,7 @@ fn main() {
     if path.is_dir() {
         println!("looking for images...");
         let images = get_images_from_dir(&argv[1]);
-        if argv.contains(&String::from("--cache")) {
+        if argv.contains(&"--cache".to_string()) {
             println!("caching images...");
             for chunk in images.chunks(6) {
                 let mut threads = Vec::new();

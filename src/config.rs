@@ -59,6 +59,7 @@ impl Config {
     pub fn new(config_path: &str, cache_only: bool) -> Self {
         let args = Args::new();
         
+        // TODO simplify this mess
         let config_data = read_data(config_path);
         let templates_data = read_data(&parse_path(match &args.rpaper_temp_path {
             Some(path) => path,
