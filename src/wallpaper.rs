@@ -173,11 +173,11 @@ fn create_last_used_wallpaper_file(path: &str, data: &str) {
     let _ = file.write_all(data.as_bytes());
 }
 
-pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>, command: &str) {
+pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>, original_image_path: &str, command: &str) {
     for i in 0..displays.len() {
         let path = &cached_images_paths[i];
 
-        let rcommand = parse_command(command, &path, &displays[i].name);
+        let rcommand = parse_command(command, &path, original_image_path, &displays[i].name,);
         if Path::new(&path).exists() {
             spawn(&rcommand);
             create_last_used_wallpaper_file(

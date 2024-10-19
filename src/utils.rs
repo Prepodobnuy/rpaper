@@ -24,10 +24,11 @@ pub fn parse_path(path: &str) -> String {
     String::from(path)
 }
 
-pub fn parse_command(command: &str, image_path: &str, display: &str) -> String {
+pub fn parse_command(command: &str, image_path: &str, original_image_path: &str, display: &str) -> String {
     //let res = command.to_owned() + " > /dev/null";
     return command
         .replace("{image}", image_path)
+        .replace("{default_image}", original_image_path)
         .replace("{display}", display);
 }
 

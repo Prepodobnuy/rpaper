@@ -100,6 +100,7 @@ fn run(image_path: &str) {
                     wallpaper::set(
                         &displays,
                         &cached_wallpapers_paths,
+                        &image_path,
                         &config.wall_command,
                     );
                 }
