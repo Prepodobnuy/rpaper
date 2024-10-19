@@ -21,3 +21,5 @@
 - implement sane --help
 - add gif support
 - get rid of wallpaper backends (swww/swaybg/etc.)
+## Thanks to
+- [colorz](https://github.com/metakirby5/colorz) for pallete generator algorithm
