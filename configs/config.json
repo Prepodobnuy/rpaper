@@ -2,17 +2,17 @@
   "displays": [
     {
       "name": "HDMI-A-1",
-      "width": 1920,
-      "height": 1080,
-      "margin-left": 1080,
-      "margin-top": 305
+      "w": 1920,
+      "h": 1080,
+      "x": 1080,
+      "y": 305
     },
     {
       "name": "DP-1",
-      "width": 1080,
-      "height": 1920,
-      "margin-left": 0,
-      "margin-top": 0
+      "w": 1080,
+      "h": 1920,
+      "x": 0,
+      "y": 0
     }
   ],
   "temp_path": "~/.config/rpaper/templates.json",

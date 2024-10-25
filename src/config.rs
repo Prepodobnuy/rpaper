@@ -58,7 +58,7 @@ pub struct ImageOperations {
 impl Config {
     pub fn new(config_path: &str, cache_only: bool) -> Self {
         let args = Args::new();
-        
+
         // TODO simplify this mess
         let config_data = read_data(config_path);
         let templates_data = read_data(&parse_path(match &args.rpaper_temp_path {
@@ -72,36 +72,44 @@ impl Config {
 
         let cache_dir = parse_path(match &args.rpaper_cache_dir {
             Some(path) => path,
-            None => config_data["cache_dir"].as_str().unwrap_or("~/.cache/rpaper/Wallpapers"),
+            None => config_data["cache_dir"]
+                .as_str()
+                .unwrap_or("~/.cache/rpaper/Wallpapers"),
         });
         let scheme_file = parse_path(match &args.rpaper_scheme_file {
             Some(path) => path,
-            None => config_data["scheme_file"].as_str().unwrap_or("~/.config/rpaper/color_variables.json"),
+            None => config_data["scheme_file"]
+                .as_str()
+                .unwrap_or("~/.config/rpaper/color_variables.json"),
         });
-        
+
         let wall_command = (match &args.rpaper_wall_command {
             Some(result) => result,
-            None => config_data["wall_command"].as_str().unwrap(),    
-        }).to_string();
+            None => config_data["wall_command"].as_str().unwrap(),
+        })
+        .to_string();
         let resize_algorithm = (match &args.rpaper_resize_algorithm {
             Some(result) => result,
-            None => config_data["resize_algorithm"].as_str().unwrap_or("Lanczos3"),
-        }).to_string();
-        
+            None => config_data["resize_algorithm"]
+                .as_str()
+                .unwrap_or("Lanczos3"),
+        })
+        .to_string();
+
         let cache_scheme = match args.rpaper_cache_scheme {
             Some(result) => result,
             None => config_data["cache_scheme"].as_bool().unwrap_or(true),
         };
         let cache_walls = match args.rpaper_cache_walls {
-            Some(result) => {result}
+            Some(result) => result,
             None => config_data["cache_walls"].as_bool().unwrap_or(true),
-        };  
+        };
         let mut set_templates = match args.rpaper_set_templates {
-            Some(result) => {result}
+            Some(result) => result,
             None => config_data["set_templates"].as_bool().unwrap_or(true),
         };
         let mut set_walls = match args.rpaper_set_walls {
-            Some(result) => {result}
+            Some(result) => result,
             None => config_data["set_walls"].as_bool().unwrap_or(true),
         };
         if cache_only {
@@ -109,7 +117,6 @@ impl Config {
             set_walls = false;
         }
 
-        
         let rwal_params = get_rwal_params(&config_data, &args);
         let image_operations = get_image_operations(&config_data, &args);
 
@@ -142,15 +149,21 @@ impl Config {
 fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
     let change_contrast = match args.image_processing_change_contrast {
         Some(val) => val,
-        None => config_data["imgp_change_contrast"].as_bool().unwrap_or(false),
+        None => config_data["imgp_change_contrast"]
+            .as_bool()
+            .unwrap_or(false),
     };
     let change_brightness = match args.image_processing_change_brigtness {
         Some(val) => val,
-        None => config_data["imgp_change_brightness"].as_bool().unwrap_or(false),
+        None => config_data["imgp_change_brightness"]
+            .as_bool()
+            .unwrap_or(false),
     };
     let change_huerotate = match args.image_processing_change_hue {
         Some(val) => val,
-        None => config_data["imgp_change_huerotate"].as_bool().unwrap_or(false),
+        None => config_data["imgp_change_huerotate"]
+            .as_bool()
+            .unwrap_or(false),
     };
     let change_blur = match args.image_processing_change_blur {
         Some(val) => val,
@@ -168,8 +181,7 @@ fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
         Some(val) => val,
         None => config_data["imgp_invert"].as_bool().unwrap_or(false),
     };
-    
-    
+
     let contrast = match args.image_processing_contrast {
         Some(val) => val,
         None => config_data["contrast"].as_f64().unwrap_or(0.0) as f32,
@@ -186,7 +198,7 @@ fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
         Some(val) => val,
         None => config_data["blur"].as_f64().unwrap_or(0.0) as f32,
     };
-    
+
     ImageOperations {
         change_contrast,
         change_brightness,
@@ -206,7 +218,9 @@ fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
 fn get_rwal_params(config_data: &Value, args: &Args) -> RwalParams {
     let cache_dir = parse_path(match &args.rwal_cache_dir {
         Some(val) => val.as_str(),
-        None => config_data["rwal_cache_dir"].as_str().unwrap_or("~/.cache/rpaper/rwal"),
+        None => config_data["rwal_cache_dir"]
+            .as_str()
+            .unwrap_or("~/.cache/rpaper/rwal"),
     });
     let thumb_w = match args.rwal_thumb_w {
         Some(val) => val,
@@ -240,11 +254,11 @@ fn get_rwal_params(config_data: &Value, args: &Args) -> RwalParams {
 
 fn get_displays(config_data: &Value, raw_displays: Option<String>) -> Vec<Display> {
     let mut displays: Vec<Display> = Vec::new();
-    
+
     if let Some(display_data) = raw_displays {
         for raw_display in display_data.split(",") {
             let display_params: Vec<&str> = raw_display.split(":").collect();
-            
+
             let name: String = display_params[0].to_string();
             let w: u32 = display_params[1].parse().unwrap_or_else(|_| {
                 panic!("Invalid {} width\nPerhaps you forgot to specify a value. Remember that the value must be an integer.", name)
@@ -263,13 +277,13 @@ fn get_displays(config_data: &Value, raw_displays: Option<String>) -> Vec<Displa
         }
         return displays;
     }
-    
+
     for raw_display in config_data["displays"].as_array().unwrap() {
         let name = String::from(raw_display["name"].as_str().unwrap());
-        let w = raw_display["width"].as_u64().unwrap() as u32;
-        let h = raw_display["height"].as_u64().unwrap() as u32;
-        let x = raw_display["margin-left"].as_u64().unwrap() as u32;
-        let y = raw_display["margin-top"].as_u64().unwrap() as u32;
+        let w = raw_display["w"].as_u64().unwrap() as u32;
+        let h = raw_display["h"].as_u64().unwrap() as u32;
+        let x = raw_display["x"].as_u64().unwrap() as u32;
+        let y = raw_display["y"].as_u64().unwrap() as u32;
 
         displays.push(Display::new(w, h, x, y, name))
     }
@@ -302,7 +316,9 @@ fn get_variables(vars_data: Value) -> Vec<ColorVariable> {
         let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
         let constant_value = String::from(raw_variable["constant"].as_str().unwrap_or(""));
         let mut is_constant = false;
-        if constant_value != "" {is_constant = true};
+        if constant_value != "" {
+            is_constant = true
+        };
         if name.contains("{br}") {
             let oldname = name;
             name = oldname.replace("{br}", "");
@@ -327,7 +343,14 @@ fn get_variables(vars_data: Value) -> Vec<ColorVariable> {
                 ));
             }
         }
-        vars.push(ColorVariable::new(name, value, brightness, inverted, is_constant, constant_value));
+        vars.push(ColorVariable::new(
+            name,
+            value,
+            brightness,
+            inverted,
+            is_constant,
+            constant_value,
+        ));
     }
     vars
 }
