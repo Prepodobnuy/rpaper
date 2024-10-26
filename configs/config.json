@@ -15,7 +15,17 @@
       "y": 0
     }
   ],
-  "temp_path": "~/.config/rpaper/templates.json",
+  "templates": [
+    "~/test_template.template",
+    "~/.config/rpaper/rpaper_templates/alacritty.template",
+    "~/.config/rpaper/rpaper_templates/oomox_shell.template",
+    "~/.config/rpaper/rpaper_templates/rofi-wide.template",
+    "~/.config/rpaper/rpaper_templates/rofi.template",
+    "~/.config/rpaper/rpaper_templates/waybar.template",
+    "~/.config/rpaper/rpaper_templates/qt6ct-kde.template",
+    "~/.config/rpaper/rpaper_templates/swaync.template",
+    "~/.config/rpaper/rpaper_templates/vesktop.template"
+  ],
   "vars_path": "~/.config/rpaper/color_variables.json",
   "cache_dir": "~/.cache/rpaper/Wallpapers",
   "scheme_file": "~/.cache/rpaper/rwal/colors",
