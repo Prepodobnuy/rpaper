@@ -1,3 +1,12 @@
+mod config;
+mod displays;
+mod rwal;
+mod templates;
+mod utils;
+mod wallpaper;
+mod argparser;
+mod log;
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -8,14 +17,6 @@ use rand::thread_rng;
 
 use crate::config::Config;
 
-mod config;
-mod displays;
-mod rwal;
-mod templates;
-mod utils;
-mod wallpaper;
-mod argparser;
-mod log;
 
 fn run(image_path: &str) {
     let argv: Vec<String> = env::args().collect();
@@ -49,7 +50,7 @@ fn run(image_path: &str) {
         let _colorscheme_thread = thread::spawn(move || {
             if cache_colorscheme {
                 if !rwal.is_cached() {
-                    println!("caching colorscheme...");
+                    log::log("caching colorscheme...");
                     let img = wallpaper::get_thumbed_image(
                         &img_path,
                         &image_ops,
@@ -64,7 +65,7 @@ fn run(image_path: &str) {
             if apply_templates {
                 let templates = config.templates;
                 let variables = templates::fill_color_variables(&config.vars_path, &config.scheme_file);
-                println!("applying templates...");
+                log::log("applying templates...");
                 templates::apply_templates(templates, variables);
             }
         });
@@ -96,7 +97,7 @@ fn run(image_path: &str) {
                 );
 
                 if set_wallpaper {
-                    println!("setting wallpapers...");
+                    log::log("setting wallpapers...");
                     wallpaper::set(
                         &displays,
                         &cached_wallpapers_paths,
@@ -158,10 +159,10 @@ fn main() {
     }
     let path = Path::new(&argv[1]);
     if path.is_dir() {
-        println!("looking for images...");
+        log::log("looking for images...");
         let images = get_images_from_dir(&argv[1]);
         if argv.contains(&"--cache".to_string()) {
-            println!("caching images...");
+            log::log("caching images...");
             for chunk in images.chunks(6) {
                 let mut threads = Vec::new();
 
@@ -180,7 +181,7 @@ fn main() {
             let random_image = images.choose(&mut rng).cloned();
 
             if let Some(ref random_image) = random_image {
-                println!("selected image: {}", &random_image);
+                log::log(&format!("selected image: {}", &random_image));
                 run(random_image)
             }
         }

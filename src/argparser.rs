@@ -2,7 +2,6 @@ use std::env;
 
 #[derive(Clone)]
 pub struct Args {
-    pub rpaper_temp_path: Option<String>,
     pub rpaper_vars_path: Option<String>,
     pub rpaper_cache_dir: Option<String>,
     pub rpaper_scheme_file: Option<String>,
@@ -33,15 +32,14 @@ pub struct Args {
     pub rwal_clamp_max: Option<f32>,
 
     pub displays: Option<String>,
-    pub templates: Option<String>, // TODO implement a one-line variation of writing templates
-    pub variables: Option<String>, // TODO implement a one-line variation of writing variables
+    pub templates: Option<String>, // TODO implement a one-line variation of writing templates via terminal
+    pub variables: Option<String>, // TODO implement a one-line variation of writing variables via terminal
 }
 
 impl Args {
     pub fn new() -> Self {
         let args: Vec<String> = env::args().collect();
 
-        let mut rpaper_temp_path = None;
         let mut rpaper_vars_path = None;
         let mut rpaper_cache_dir = None;
         let mut rpaper_scheme_file = None;
@@ -76,14 +74,13 @@ impl Args {
         let mut variables = None;
 
         for (i, arg) in args.clone().into_iter().enumerate() {
-            let value; // OMG WHAT A HECK
+            let value; // OMG WHAT A HECK // upd this heck is realy NICE :D
             if i == args.len() - 1 {
                 value = None;
             } else {
                 value = Some(args[i+1].clone());
             }
             match arg.as_str() {
-                "--temp-path" =>          rpaper_temp_path = get_string(value),
                 "--vars-path" =>          rpaper_vars_path = get_string(value),
                 "--cache-dir" =>          rpaper_cache_dir = get_string(value),
                 "--scheme-file" =>        rpaper_scheme_file = get_string(value),
@@ -121,7 +118,6 @@ impl Args {
         }
 
         Args {
-            rpaper_temp_path,
             rpaper_vars_path,
             rpaper_cache_dir,
             rpaper_scheme_file,

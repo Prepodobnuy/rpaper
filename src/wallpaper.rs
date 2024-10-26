@@ -1,12 +1,14 @@
-use crate::config::ImageOperations;
-use crate::displays::{self, displays_max_height, displays_max_width, Display};
-use crate::utils::{self, get_img_ops_affected_name, parse_command, parse_path, spawn};
-use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
-use image::{self, DynamicImage, RgbImage};
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::thread;
+
+use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
+use image::{self, DynamicImage, RgbImage};
+
+use crate::config::ImageOperations;
+use crate::displays::{self, displays_max_height, displays_max_width, Display};
+use crate::utils::{self, get_img_ops_affected_name, parse_command, parse_path, spawn};
 
 fn calculate_width_height(
     image_width: u32,

@@ -1,9 +1,7 @@
 use std::clone::Clone;
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io::Write;
 use std::thread;
-
-use serde_json::Value;
 
 use crate::utils::{parse_path, spawn, system, read_data};
 use crate::log::warn;
@@ -243,22 +241,6 @@ impl ColorVariable {
             value: color,
         }
     }
-}
-
-
-fn get_colors_from_scheme(path: String) -> Vec<String> {
-    let mut file = File::open(path).unwrap();
-    let mut data = String::new();
-    file.read_to_string(&mut data).unwrap();
-
-    let tmp: Vec<&str> = data.split("\n").collect();
-    let mut res: Vec<String> = Vec::new();
-
-    for color in tmp {
-        res.push(String::from(color));
-    }
-
-    res
 }
 
 pub fn apply_templates(

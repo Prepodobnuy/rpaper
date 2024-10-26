@@ -1,12 +1,8 @@
-use std::fs::File;
-use std::io::Read;
-
 use serde_json::Value;
 
 use crate::displays::Display;
 use crate::templates::Template;
 use crate::utils::{parse_path, read_data};
-
 use crate::argparser::Args;
 
 #[derive(Clone)]

@@ -3,11 +3,9 @@ use std::fs;
 use std::path::Path;
 
 use image::{self, RgbImage};
-
 use kmeans_colors::{get_kmeans, Kmeans};
 use palette::cast::from_component_slice;
 use palette::{IntoColor, Lab, Srgb};
-
 use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 
 pub struct Rwal {
