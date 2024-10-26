@@ -15,6 +15,7 @@ mod templates;
 mod utils;
 mod wallpaper;
 mod argparser;
+mod log;
 
 fn run(image_path: &str) {
     let argv: Vec<String> = env::args().collect();
@@ -37,9 +38,8 @@ fn run(image_path: &str) {
         // colorscheme & templates processing
         let image_ops = config.image_operations.clone();
         let img_path = image_path.clone();
-        let color_scheme_file = config.scheme_file;
         let templates = config.templates;
-        let variables = config.variables;
+        let variables = templates::fill_color_variables(&config.vars_path, &config.scheme_file);
         let rwal = rwal::Rwal::new(
             &utils::get_img_ops_affected_name(&image_name, &image_ops),
             &config.rwal_params.cache_dir,
@@ -65,7 +65,7 @@ fn run(image_path: &str) {
             }
             if apply_templates {
                 println!("applying templates...");
-                templates::apply_templates(templates, variables, color_scheme_file);
+                templates::apply_templates(templates, variables);
             }
         });
         threads.push(_colorscheme_thread);

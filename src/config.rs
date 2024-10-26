@@ -4,8 +4,8 @@ use std::io::Read;
 use serde_json::Value;
 
 use crate::displays::Display;
-use crate::templates::{ColorVariable, Template};
-use crate::utils::parse_path;
+use crate::templates::Template;
+use crate::utils::{parse_path, read_data};
 
 use crate::argparser::Args;
 
@@ -27,7 +27,7 @@ pub struct Config {
 
     pub displays: Vec<Display>,
     pub templates: Vec<Template>,
-    pub variables: Vec<ColorVariable>,
+    pub vars_path: String,
 }
 
 #[derive(Clone)]
@@ -61,14 +61,11 @@ impl Config {
 
         // TODO simplify this mess
         let config_data = read_data(config_path);
-        let templates_data = read_data(&parse_path(match &args.rpaper_temp_path {
-            Some(path) => path,
-            None => config_data["temp_path"].as_str().unwrap(),
-        }));
-        let vars_data = read_data(&parse_path(match &args.rpaper_vars_path {
+        let template_paths: &Vec<Value> = config_data["templates"].as_array().unwrap();
+        let vars_path = parse_path(match &args.rpaper_vars_path {
             Some(path) => path,
             None => config_data["vars_path"].as_str().unwrap(),
-        }));
+        });
 
         let cache_dir = parse_path(match &args.rpaper_cache_dir {
             Some(path) => path,
@@ -121,8 +118,7 @@ impl Config {
         let image_operations = get_image_operations(&config_data, &args);
 
         let displays = get_displays(&config_data, args.displays);
-        let templates = get_templates(templates_data);
-        let variables = get_variables(vars_data);
+        let templates = get_templates(template_paths);
 
         Config {
             cache_dir,
@@ -141,7 +137,7 @@ impl Config {
 
             displays,
             templates,
-            variables,
+            vars_path,
         }
     }
 }
@@ -290,77 +286,14 @@ fn get_displays(config_data: &Value, raw_displays: Option<String>) -> Vec<Displa
     displays
 }
 
-fn get_templates(templates_data: Value) -> Vec<Template> {
+fn get_templates(template_paths: &Vec<Value>) -> Vec<Template> {
     let mut templates: Vec<Template> = Vec::new();
-    for raw_template in templates_data.as_array().unwrap() {
-        let temp_path = parse_path(raw_template["template_path"].as_str().unwrap());
-        let conf_path = parse_path(raw_template["config_path"].as_str().unwrap());
-        let use_quotes = raw_template["use_quotes"].as_bool().unwrap();
-        let use_sharps = raw_template["use_sharps"].as_bool().unwrap();
-        let opacity = String::from(raw_template["opacity"].as_str().unwrap());
-        let command = String::from(raw_template["command"].as_str().unwrap());
-
-        templates.push(Template::new(
-            temp_path, conf_path, use_quotes, use_sharps, opacity, command,
-        ));
-    }
-    templates
-}
-
-fn get_variables(vars_data: Value) -> Vec<ColorVariable> {
-    let mut vars: Vec<ColorVariable> = Vec::new();
-    for raw_variable in vars_data.as_array().unwrap() {
-        let mut name = String::from(raw_variable["name"].as_str().unwrap());
-        let value = raw_variable["value"].as_u64().unwrap_or(0) as usize;
-        let brightness = raw_variable["brightness"].as_i64().unwrap_or(0) as i32;
-        let inverted = raw_variable["inverted"].as_bool().unwrap_or(false);
-        let constant_value = String::from(raw_variable["constant"].as_str().unwrap_or(""));
-        let mut is_constant = false;
-        if constant_value != "" {
-            is_constant = true
-        };
-        if name.contains("{br}") {
-            let oldname = name;
-            name = oldname.replace("{br}", "");
-            for i in 1..11 {
-                vars.push(ColorVariable::new(
-                    oldname.replace("{br}", &format!("d{}", i)),
-                    value,
-                    brightness - (i * 10),
-                    inverted,
-                    is_constant,
-                    constant_value.clone(),
-                ));
-            }
-            for i in 1..11 {
-                vars.push(ColorVariable::new(
-                    oldname.replace("{br}", &format!("l{}", i)),
-                    value,
-                    brightness + (i * 10),
-                    inverted,
-                    is_constant,
-                    constant_value.clone(),
-                ));
+    for template_path in template_paths {
+        if let Some(path) = template_path.as_str() {
+            if let Ok(template) = Template::read(&parse_path(path)) {
+                templates.push(template);
             }
         }
-        vars.push(ColorVariable::new(
-            name,
-            value,
-            brightness,
-            inverted,
-            is_constant,
-            constant_value,
-        ));
     }
-    vars
-}
-
-fn read_data(data_path: &str) -> Value {
-    let mut file = File::open(data_path).unwrap();
-    let mut json_data = String::new();
-    file.read_to_string(&mut json_data).unwrap();
-
-    let data: Value = serde_json::from_str(&json_data).unwrap();
-
-    data
+    templates
 }

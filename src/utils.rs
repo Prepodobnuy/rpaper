@@ -1,8 +1,12 @@
-use crate::Path;
 use std::env;
 use std::path::PathBuf;
 use std::process::Command;
+use std::fs::File;
+use std::io::Read;
 
+use serde_json::Value;
+
+use crate::Path;
 use crate::config::ImageOperations;
 
 fn add_home_path_to_string(path: &str) -> String {
@@ -156,4 +160,14 @@ pub fn help_message() { // TODO rewrite help message. Almost everything written 
     HDMI-A-1:1920:1080:0:0,DP-A-1:1920:1080:0:0
     DISPLAY_NAME:DISPLAY_WIDTH:DISPLAY_HEIGHT:DISPLAY_X:DISPLAY_Y,ANOTHER_DISPLAY:ANOTHER_DISPLAY_WIDTH..."#;
     println!("{}", help_message);
+}
+
+pub fn read_data(data_path: &str) -> Value {
+    let mut file = File::open(data_path).unwrap();
+    let mut json_data = String::new();
+    file.read_to_string(&mut json_data).unwrap();
+
+    let data: Value = serde_json::from_str(&json_data).unwrap();
+
+    data
 }
