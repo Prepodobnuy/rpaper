@@ -38,8 +38,6 @@ fn run(image_path: &str) {
         // colorscheme & templates processing
         let image_ops = config.image_operations.clone();
         let img_path = image_path.clone();
-        let templates = config.templates;
-        let variables = templates::fill_color_variables(&config.vars_path, &config.scheme_file);
         let rwal = rwal::Rwal::new(
             &utils::get_img_ops_affected_name(&image_name, &image_ops),
             &config.rwal_params.cache_dir,
@@ -64,6 +62,8 @@ fn run(image_path: &str) {
                 }
             }
             if apply_templates {
+                let templates = config.templates;
+                let variables = templates::fill_color_variables(&config.vars_path, &config.scheme_file);
                 println!("applying templates...");
                 templates::apply_templates(templates, variables);
             }
