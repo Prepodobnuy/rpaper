@@ -1,0 +1,48 @@
+# Rpaper template file is needed for pasting colors in your configs
+# Rtemplate receives colors, wraps them into a format param 
+# and pastes them into config template ([caption] section)
+#
+# syntax is similar to toml files
+# but the only readable information is located in the param section
+
+# Param section
+[param]
+
+# path param is a path to config file
+path:~/path/to/some/config/file.format
+
+# format param is a template that will be filled with color
+# format has 'inserts' to paste different color representations
+# {HEX} => hex color
+# {R} => red color
+# {G} => green color
+# {B} => blue color
+format:"#{HEX} ({R}, {G}, {B})"
+
+# before param is a command which is executed before pasting colors in a template
+# IMPORTANT: rpaper waits for the 'before command' to be executed before the colors are filled
+before:echo "wow im in a rpaper template"
+
+# after param is a command which is executed after pasting colors in a template
+# rpaper does not wait for a 'after command' to be executed
+after:echo "me too :p"
+
+# Caption section
+[caption]
+// some important config file here
+fn main() {
+    println!("colorvariablename");
+    println!("colorvariablenameBR200");
+    println!("colorvariablenameBR400");
+}
+
+// rpaper will replace colorvariablename with a color filled in a format param
+// so results is gonna be like that
+
+fn main() {
+    println!(""#000000, (0, 0, 0)"");
+    println!(""#c8c8c8, (200, 200, 200)"");
+    println!(""#000000, (0, 0, 0)"");
+}
+
+// also caption section does not support comments
