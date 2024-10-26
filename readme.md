@@ -19,6 +19,7 @@
 - ~~get rid of pywal~~
 - add arguments
 - implement sane --help
+- write wiki
 - add gif support
 - get rid of wallpaper backends (swww/swaybg/etc.)
 ## Thanks to
