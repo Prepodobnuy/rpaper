@@ -147,9 +147,9 @@ impl Color {
         }
     }
 
-    fn clamp(&mut self, brightnesss: u8) {
+    fn clamp(&mut self, brightness: u8) {
         let m: f32 = (self.r + self.g + self.b) as f32 / 3.0;
-        let d: f32 = m / brightnesss as f32;
+        let d: f32 = m / brightness as f32;
 
         let mut r: f32 = self.r as f32 / d;
         let mut g: f32 = self.g as f32 / d;
@@ -289,6 +289,24 @@ pub fn fill_color_variables(vars_path: &str, color_scheme_file_path: &str) -> Ve
         let index = raw_color_var["value"].as_u64().unwrap_or(0) as usize;
         let brightness = raw_color_var["brightness"].as_i64().unwrap_or(0) as i32;
         let inverted = raw_color_var["inverted"].as_bool().unwrap_or(false);
+        if name.contains("{br}") {
+            for i in 1..10 {
+                color_vars.push(ColorVariable::new(
+                    &name.replace("{br}", &format!("DR{}{{br}}", i)),
+                    &colorscheme,
+                    index,
+                    inverted,
+                    brightness - (i * 10)
+                ));
+                color_vars.push(ColorVariable::new(
+                    &name.replace("{br}", &format!("LR{}{{br}}", i)),
+                    &colorscheme,
+                    index,
+                    inverted,
+                    brightness + (i * 10)
+                ));
+            }
+        }
         color_vars.push(ColorVariable::new(name, &colorscheme, index, inverted, brightness));
     }
 
