@@ -1,11 +1,11 @@
+mod argparser;
 mod config;
 mod displays;
+mod log;
 mod rwal;
 mod templates;
 mod utils;
 mod wallpaper;
-mod argparser;
-mod log;
 
 use std::env;
 use std::fs;
@@ -17,12 +17,16 @@ use rand::thread_rng;
 
 use crate::config::Config;
 
-
 fn run(image_path: &str) {
     let argv: Vec<String> = env::args().collect();
 
     let default_config_path: String = utils::parse_path("~/.config/rpaper/config.json");
-    let config_path = argv.iter().position(|s| s == "--conf").and_then(|i| argv.get(i + 1)).unwrap_or(&default_config_path).to_string();
+    let config_path = argv
+        .iter()
+        .position(|s| s == "--conf")
+        .and_then(|i| argv.get(i + 1))
+        .unwrap_or(&default_config_path)
+        .to_string();
     let image_path = String::from(image_path);
     let image_name = utils::get_image_name(&image_path);
 
@@ -64,7 +68,8 @@ fn run(image_path: &str) {
             }
             if apply_templates {
                 let templates = config.templates;
-                let variables = templates::fill_color_variables(&config.vars_path, &config.scheme_file);
+                let variables =
+                    templates::fill_color_variables(&config.vars_path, &config.scheme_file);
                 log::log("applying templates...");
                 templates::apply_templates(templates, variables);
             }
@@ -79,10 +84,8 @@ fn run(image_path: &str) {
         let displays = config.displays.clone();
         let cached_wallpapers_names =
             wallpaper::get_cached_images_names(&displays, &image_name, &image_ops);
-        let cached_wallpapers_paths = wallpaper::get_cached_images_paths(
-            &cached_wallpapers_names,
-            &config.cache_dir,
-        );
+        let cached_wallpapers_paths =
+            wallpaper::get_cached_images_paths(&cached_wallpapers_names, &config.cache_dir);
         let image_resize_algorithm = config.resize_algorithm.clone();
 
         let _wallpaper_thread = thread::spawn(move || {
@@ -119,7 +122,10 @@ fn get_absolute_path(path: PathBuf) -> PathBuf {
 }
 
 fn is_file_image(extension: &str) -> bool {
-    matches!(extension.to_lowercase().as_str(), "jpg" | "jpeg" | "webp" | "png" | "gif" | "bmp" | "tiff")
+    matches!(
+        extension.to_lowercase().as_str(),
+        "jpg" | "jpeg" | "webp" | "png" | "gif" | "bmp" | "tiff"
+    )
 }
 
 fn get_images_from_dir(dir: &str) -> Vec<String> {
