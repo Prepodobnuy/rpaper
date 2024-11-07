@@ -39,7 +39,7 @@ pub struct Args {
 impl Args {
     pub fn new() -> Self {
         let args: Vec<String> = env::args().collect();
-
+        
         let mut rpaper_vars_path = None;
         let mut rpaper_cache_dir = None;
         let mut rpaper_scheme_file = None;
@@ -49,7 +49,7 @@ impl Args {
         let mut rpaper_cache_walls = None;
         let mut rpaper_set_templates = None;
         let mut rpaper_set_walls = None;
-
+        
         let mut image_processing_change_contrast = None;
         let mut image_processing_change_brigtness = None;
         let mut image_processing_change_hue = None;
@@ -72,7 +72,7 @@ impl Args {
         let mut displays = None;
         let mut templates = None;
         let mut variables = None;
-
+        
         for (i, arg) in args.clone().into_iter().enumerate() {
             let value; // OMG WHAT A HECK // upd this heck is realy NICE :D
             if i == args.len() - 1 {
@@ -87,9 +87,9 @@ impl Args {
                 "--wall-command" =>       rpaper_wall_command = get_string(value),
                 "--resize-algorithm" =>   rpaper_resize_algorithm = get_string(value),
                 "--cache-color-scheme" => rpaper_cache_scheme = get_bool(value),
-                "--cache_wallpaper" =>    rpaper_cache_walls = get_bool(value),
+                "--cache-wallpaper" =>    rpaper_cache_walls = get_bool(value),
                 "--set-templates" =>      rpaper_set_templates = get_bool(value),
-                "--set_wallpaper" =>      rpaper_set_walls = get_bool(value),
+                "--set-wallpaper" =>      rpaper_set_walls = get_bool(value),
                 
                 "--change-contrast" =>  image_processing_change_contrast = get_bool(value),
                 "--change-brigtness" => image_processing_change_brigtness = get_bool(value),
@@ -102,7 +102,7 @@ impl Args {
                 "--brigtness" =>        image_processing_brigtness = get_f32(value),
                 "--hue" =>              image_processing_hue = get_i32(value),
                 "--blur" =>             image_processing_blur = get_f32(value),
-
+                
                 "--r-cache-dir" => rwal_cache_dir = get_string(value),
                 "thumb_w" =>       rwal_thumb_w = get_u32(value),
                 "thumb_h" =>       rwal_thumb_h = get_u32(value),
@@ -116,7 +116,7 @@ impl Args {
                 _ => {},
             }
         }
-
+        
         Args {
             rpaper_vars_path,
             rpaper_cache_dir,

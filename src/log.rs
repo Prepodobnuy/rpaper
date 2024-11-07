@@ -1,7 +1,7 @@
 pub fn warn(value: &str) {
-    println!("Warn: {}", value)
+    println!("WARN: {}", value)
 }
 
 pub fn log(value: &str) {
-    println!("Log: {}", value)
+    println!("LOG: {}", value)
 }

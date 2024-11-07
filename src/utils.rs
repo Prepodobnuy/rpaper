@@ -96,69 +96,63 @@ pub fn get_img_ops_affected_name(image_name: &str, image_ops: &ImageOperations) 
 
 pub fn help_message() { // TODO rewrite help message. Almost everything written here is deprecated LOL
     let help_message = r#"Usage:
-  rpaper <path/to/dir/with/images>|<path/to/image> -flag, --second-flag
---help                                          - display this message
+rpaper <path/to/image> 
+rpaper <path/to/dir>
 
---temp-path <path/to/template>                  - overwrite path to templates
---vars-path <path/to/variables>                 - overwrite path to color variables
---cache-dir <path/to/cache-dir>                 - overwrite path to cached wallpapers
---color-scheme-file <path/to/color-scheme-file> - overwrite path to color scheme file
---set-wallpaper-command <set-wallpaper-command> - overwrite command to set wallpapers
-  keywords:
-    {display} -> display wallpaper set to
-    {image}   -> path of image file setted to display
-  
-  examples:
-    swww -i {image} -o {display}
-    swaybg -i {image} -o {display}
+Flags: 
 
---resize-backend <resize-backend>               - overwrite resize algorithm
-  posible values:
-   Nearest
-   Triangle
-   CatmllRom
-   Gaussian
-   Lanczos3
+--vars-path <path/to/color/variables>
 
---cache-colorscheme <true/false>                - idk what to write here lol
---apply-templates <true/false>
---cache-wallpapers <true/false>
---set-wallpaper <true/false>
+--cache-dir <path/to/cache/dir>
 
---change-contrast <true/false>
---change-brightness <true/false>
---change-hue <true/false>
---change-blur <true/false>
+--wall-command "some wallpaper backend" 
+               "swaybg -o {display} -i {image}"
+               display -> display name
+               image   -> cached image path
 
---contrast-value <int>
-  possible values:
-    from -255 to 255
---brightness-value <int>
-  possible values:
-    from -255 to 255
---hue-value <int>
-  possible values:
-    from 0 to 360
---blur-value <float>
-  possible values:
-    any
+--resize-algorithm "algorithm"
+                   CatmullRom
+                   Gaussian
+                   Lanczos3
+                   Nearest
+                   Triangle
 
---apply-inversion <true/false>
---apply-h-flip <true/false>
---apply-v-flip <true/false>
+--cache-color-scheme true|false
+--cache-wallpaper true|false
+--set-templates true|false
+--set-wallpaper true|false
 
---rwal-cache-dir <path/to/rwal/cache/dir>
---rwal-thumb-width
---rwal-thumb-height
---rwal-thumb-width
---rwal-accent-color
---rwal-clamp-min
---rwal-clamp-max
+--change-contrast true|false
+--change-brightness true|false
+--change-hue true|false
+--change-blur true|false
+--invert true|false
+--h-flip true|false
+--v-flip true|false
+--contrast <float number>
+--brightness <float number>
+--hue <integer number>
+--blur <float number>
 
---displays <displays>
-  posible values:
-    HDMI-A-1:1920:1080:0:0,DP-A-1:1920:1080:0:0
-    DISPLAY_NAME:DISPLAY_WIDTH:DISPLAY_HEIGHT:DISPLAY_X:DISPLAY_Y,ANOTHER_DISPLAY:ANOTHER_DISPLAY_WIDTH..."#;
+--r-cache-dir <path/to/cache/directory>
+--thumb-w <int number larger than 0>
+--thumb-h <int number larger than 0>
+--accent <int number larger than 0>
+--clamp-min <float number larger than 0>
+--clamp-max <float number larger than 0>
+
+--displays "displays"
+           DISPLAY_NAME:DISPLAY_WIDTH:DISPLAY_HEIGHT:DISPLAY_X:DISPLAY_Y,ANOTHER_DISPLAY_NAME...
+           HDMI-A-1:1920:1080:0:0,DP-A-1:1920:1080:0:0
+
+--templates "templates"
+            /path/to/template,/path/to/template,/path/to/template
+
+--variables "variables"
+            work in progress :p
+
+
+"#;
     println!("{}", help_message);
 }
 
