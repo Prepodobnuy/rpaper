@@ -116,7 +116,7 @@ impl Config {
         let image_operations = get_image_operations(&config_data, &args);
 
         let displays = get_displays(&config_data, args.displays);
-        let templates = get_templates(template_paths);
+        let templates = get_templates(template_paths, args.templates);
 
         Config {
             cache_dir,
@@ -284,8 +284,19 @@ fn get_displays(config_data: &Value, raw_displays: Option<String>) -> Vec<Displa
     displays
 }
 
-fn get_templates(template_paths: &Vec<Value>) -> Vec<Template> {
+fn get_templates(template_paths: &Vec<Value>, _templates: Option<String>) -> Vec<Template> {
     let mut templates: Vec<Template> = Vec::new();
+    
+    if let Some(_templates) = _templates {
+        _templates.split(",")
+            .for_each(|template_path| {
+                if let Ok(template) = Template::read(&expand_user(template_path)) {
+                    templates.push(template);
+                }
+            });
+        return templates;
+    }
+    
     for template_path in template_paths {
         if let Some(path) = template_path.as_str() {
             if let Ok(template) = Template::read(&expand_user(path)) {
