@@ -3,10 +3,11 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::thread;
 
-// comment
+use crate::utils::directory::expand_user;
+use crate::utils::command::{spawn, system};
+use crate::utils::config::read_data;
+use crate::utils::logger::warn;
 
-use crate::utils::{parse_path, spawn, system, read_data};
-use crate::log::warn;
 
 #[derive(Clone)]
 pub struct Template {
@@ -52,7 +53,7 @@ impl Template {
                     let splitted: Vec<&str> = string.split(":").collect();
                     if splitted[1].is_empty() || splitted[0].is_empty() {continue;}
                     match splitted[0] {
-                        "path" => path = parse_path(splitted[1]),
+                        "path" => path = expand_user(splitted[1]),
                         "format" => format = splitted[1].to_string(),
                         "before" => before = splitted[1].to_string(),
                         "after" => after = splitted[1].to_string(),

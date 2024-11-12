@@ -1,14 +1,13 @@
-use std::fs::File;
-use std::io::Write;
 use std::path::Path;
 use std::thread;
 
 use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
 use image::{self, DynamicImage, RgbImage};
 
-use crate::config::ImageOperations;
 use crate::displays::{self, displays_max_height, displays_max_width, Display};
-use crate::utils::{self, get_img_ops_affected_name, parse_command, parse_path, spawn};
+use crate::utils::config::ImageOperations;
+use crate::utils::command::{spawn, parse_command};
+
 
 fn calculate_width_height(
     image_width: u32,
@@ -80,8 +79,8 @@ pub fn get_image(
     _image
 }
 
-pub fn get_thumbed_image(img_path: &str, image_ops: &ImageOperations, w: u32, h: u32) -> RgbImage {
-    let mut _image = image::open(img_path).unwrap();
+pub fn get_thumbed_image(image_path: &str, image_ops: &ImageOperations, w: u32, h: u32) -> RgbImage {
+    let mut _image = image::open(image_path).unwrap();
     _image = _image.resize_exact(w, h, Nearest);
     if image_ops.change_contrast {
         _image = _image.adjust_contrast(image_ops.contrast)
@@ -107,48 +106,17 @@ pub fn get_thumbed_image(img_path: &str, image_ops: &ImageOperations, w: u32, h:
     _image.to_rgb8()
 }
 
-pub fn get_cached_images_names(
-    displays: &Vec<displays::Display>,
-    image_name: &str,
-    image_ops: &ImageOperations,
-) -> Vec<String> {
-    let mut res: Vec<String> = Vec::new();
-    for display in displays {
-        let mut image_name = format!(
-            "{}.{}.{}.{}.{}-{}",
-            display.name, display.w, display.h, display.x, display.y, image_name
-        );
-        image_name = get_img_ops_affected_name(&image_name, image_ops);
-
-        res.push(image_name);
-    }
-
-    res
-}
-
-pub fn get_cached_images_paths(
-    cached_wallpapers_names: &Vec<String>,
-    cached_wallpapers_path: &str,
-) -> Vec<String> {
-    let mut res: Vec<String> = Vec::new();
-    for w_name in cached_wallpapers_names {
-        res.push(format!("{}/{}", cached_wallpapers_path, w_name));
-    }
-
-    res
-}
-
 pub fn cache(
-    image_path: &str,
     image_name: &str,
+    image_path: &str,
+    cache_paths: &Vec<String>,
     image_ops: &ImageOperations,
     image_resize_algorithm: &str,
     displays: &Vec<displays::Display>,
-    cached_wallpapers_paths: &Vec<String>,
 ) {
     let mut threads = Vec::new();
 
-    for (i, path) in cached_wallpapers_paths.iter().enumerate() {
+    for (i, path) in cache_paths.iter().enumerate() {
         if !Path::new(&path).exists() {
             println!("caching {} to {}", image_name, displays[i].name);
             let display = displays[i].clone();
@@ -156,11 +124,11 @@ pub fn cache(
             let displays = displays.clone();
             let image_ops = image_ops.clone();
             let img_resize_algorithm = String::from(image_resize_algorithm);
-            let wallpaper_path = cached_wallpapers_paths[i].clone();
+            let path = path.clone();
             let thread = thread::spawn(move || {
                 let mut img = get_image(&img_path, &image_ops, &displays, &img_resize_algorithm);
                 img = img.crop_imm(display.x, display.y, display.w, display.h);
-                let _ = img.save(parse_path(&format!("{}", wallpaper_path)));
+                let _ = img.save(path);
             });
             threads.push(thread);
         }
@@ -170,22 +138,13 @@ pub fn cache(
     }
 }
 
-fn create_last_used_wallpaper_file(path: &str, data: &str) {
-    let mut file = File::create(path).unwrap();
-    let _ = file.write_all(data.as_bytes());
-}
-
-pub fn set(displays: &Vec<displays::Display>, cached_images_paths: &Vec<String>, original_image_path: &str, command: &str) {
+pub fn set(displays: &Vec<displays::Display>, cache_paths: &Vec<String>, image_path: &str, command: &str) {
     for i in 0..displays.len() {
-        let path = &cached_images_paths[i];
+        let path = &cache_paths[i];
 
-        let rcommand = parse_command(command, &path, original_image_path, &displays[i].name,);
+        let rcommand = parse_command(command, &path, image_path, &displays[i].name,);
         if Path::new(&path).exists() {
             spawn(&rcommand);
-            create_last_used_wallpaper_file(
-                utils::parse_path(format!("~/.{}", displays[i].name).as_str()).as_str(),
-                &cached_images_paths[i],
-            );
         }
     }
 }
