@@ -152,63 +152,49 @@ impl Args {
 }
 
 fn get_string(value: Option<String>) -> Option<String> {
-    match value {
-        Some(val) => {
-            if val.chars().nth(0).unwrap_or('-') == '-' {return None}
-            Some(val)
-        },
-        None => None
+    if let Some(val) = value {
+        if val.chars().nth(0).unwrap_or('-') == '-' {return None}
+        return Some(val);
     }
+    None
 }
 
 fn get_bool(value: Option<String>) -> Option<bool> {
-    match value {
-        Some(val) => {
-            if val.chars().nth(0).unwrap_or('-') == '-' {return None}
-            match val.parse() {
-                Ok(val) => Some(val),
-                Err(_) => None
-            }
-        },
-        None => None
+    if let Some(val) = value {
+        if val.chars().nth(0).unwrap_or('-') == '-' {return None}
+        if let Ok(val) = val.parse() {
+            return Some(val);
+        }
     }
+    None
 }
 
 fn get_u32(value: Option<String>) -> Option<u32> {
-    match value {
-        Some(val) => {
-            if val.chars().nth(0).unwrap_or('-') == '-' {return None}
-            match val.parse() {
-                Ok(val) => Some(val),
-                Err(_) => None
-            }
-        },
-        None => None
+    if let Some(val) = value {
+        if val.chars().nth(0).unwrap_or('-') == '-' {return None}
+        if let Ok(val) = val.parse() {
+            return Some(val);
+        }
     }
+    None
 }
 
 fn get_f32(value: Option<String>) -> Option<f32> {
-    match value {
-        Some(val) => {
-            if val.chars().nth(0).unwrap_or('-') == '-' {return None}
-            match val.parse() {
-                Ok(val) => Some(val),
-                Err(_) => None
-            }
-        },
-        None => None
+    if let Some(val) = value {
+        if val.chars().nth(0).unwrap_or('-') == '-' {return None}
+        if let Ok(val) = val.parse() {
+            return Some(val);
+        }
     }
+    None
 }
 
 fn get_i32(value: Option<String>) -> Option<i32> {
-    match value {
-        Some(val) => {
-            if val.chars().nth(0).unwrap_or('-') == '-' {return None}
-            match val.parse() {
-                Ok(val) => Some(val),
-                Err(_) => None
-            }
-        },
-        None => None
+    if let Some(val) = value {
+        if val.chars().nth(0).unwrap_or('-') == '-' {return None}
+        if let Ok(val) = val.parse() {
+            return Some(val);
+        }
     }
+    None
 }
