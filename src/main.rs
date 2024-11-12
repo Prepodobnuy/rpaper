@@ -5,7 +5,6 @@ mod templates;
 mod wallpaper;
 mod utils;
 
-
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
