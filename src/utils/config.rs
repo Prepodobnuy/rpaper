@@ -1,8 +1,10 @@
+use std::fs::File;
+use std::io::Read;
 use serde_json::Value;
 
 use crate::displays::Display;
 use crate::templates::Template;
-use crate::utils::{parse_path, read_data};
+use crate::utils::directory::expand_user;
 use crate::argparser::Args;
 
 #[derive(Clone)]
@@ -58,18 +60,18 @@ impl Config {
         // TODO simplify this mess
         let config_data = read_data(config_path);
         let template_paths: &Vec<Value> = config_data["templates"].as_array().unwrap();
-        let vars_path = parse_path(match &args.rpaper_vars_path {
+        let vars_path = expand_user(match &args.rpaper_vars_path {
             Some(path) => path,
             None => config_data["vars_path"].as_str().unwrap(),
         });
 
-        let cache_dir = parse_path(match &args.rpaper_cache_dir {
+        let cache_dir = expand_user(match &args.rpaper_cache_dir {
             Some(path) => path,
             None => config_data["cache_dir"]
                 .as_str()
                 .unwrap_or("~/.cache/rpaper/Wallpapers"),
         });
-        let scheme_file = parse_path(match &args.rpaper_scheme_file {
+        let scheme_file = expand_user(match &args.rpaper_scheme_file {
             Some(path) => path,
             None => config_data["scheme_file"]
                 .as_str()
@@ -208,7 +210,7 @@ fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
 }
 
 fn get_rwal_params(config_data: &Value, args: &Args) -> RwalParams {
-    let cache_dir = parse_path(match &args.rwal_cache_dir {
+    let cache_dir = expand_user(match &args.rwal_cache_dir {
         Some(val) => val.as_str(),
         None => config_data["rwal_cache_dir"]
             .as_str()
@@ -286,10 +288,20 @@ fn get_templates(template_paths: &Vec<Value>) -> Vec<Template> {
     let mut templates: Vec<Template> = Vec::new();
     for template_path in template_paths {
         if let Some(path) = template_path.as_str() {
-            if let Ok(template) = Template::read(&parse_path(path)) {
+            if let Ok(template) = Template::read(&expand_user(path)) {
                 templates.push(template);
             }
         }
     }
     templates
+}
+
+pub fn read_data(data_path: &str) -> Value {
+    let mut file = File::open(data_path).unwrap();
+    let mut json_data = String::new();
+    file.read_to_string(&mut json_data).unwrap();
+
+    let data: Value = serde_json::from_str(&json_data).unwrap();
+
+    data
 }
