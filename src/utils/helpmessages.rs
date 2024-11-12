@@ -1,3 +1,12 @@
+use std::env;
+
+pub fn version() {
+    let version = env!("CARGO_PKG_VERSION");
+    let version_message = format!("rpaper {}\nCopyright (C) 2024 Prepodobnuy <prepodobnuy@inbox.ru>\nLicense MIT", version);
+    println!("{}", version_message);
+}
+
+
 pub fn help_message() { // TODO rewrite help message. Almost everything written here is deprecated LOL
     let help_message = r#"Usage:
 rpaper <path/to/image> 

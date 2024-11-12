@@ -165,9 +165,17 @@ fn get_images_from_dir(dir: &str) -> Vec<String> {
 fn main() {
     let argv: Vec<String> = env::args().collect();
     if argv.len() == 1 || argv.iter().any(|arg| arg == "--help") {
-        utils::helpmessage::help_message();
+        utils::helpmessages::help_message();
         return;
     }
+
+    if argv.contains(&String::from("-V")) {
+        utils::helpmessages::version();
+        return;
+    }
+    
+    let verbose = argv.contains(&String::from("-v"));
+
     let path = Path::new(&argv[1]);
     if path.is_dir() {
         log("looking for images...");
