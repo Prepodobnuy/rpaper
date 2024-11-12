@@ -3,7 +3,7 @@
 ## About
 Rpaper is a program for making it easier to color windows in your cool and modern GNU/Linux distribution.
 
-Rpaper can split wallpapers into multiple screens, set wallpapers on multiple screens, get a color palette from wallpapers, and apply a color palette to config files
+Rpaper can split wallpapers into multiple screens, set wallpapers on multiple screens, get a color palette from wallpapers, and apply a color palette to config files.
 
 Rpaper is still **under active development**, so don't be surprised that after the update your wallpaper will burn and the configuration files will be sent to Microsoft servers.
 ## Features
