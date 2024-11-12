@@ -25,5 +25,5 @@ pub fn spawn(command: &str) {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
-        .expect("Err");
+        .expect("Failed to spawn command");
 }
