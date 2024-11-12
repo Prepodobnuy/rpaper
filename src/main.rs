@@ -19,7 +19,7 @@ use crate::utils::directory::expand_user;
 use crate::utils::name::ImageMeta;
 use crate::utils::logger::log;
 
-fn run(image_path: &str) {
+fn run(image_path: &str, verbose: bool) {
     let argv: Vec<String> = env::args().collect();
 
     let default_config_path: String = expand_user("~/.config/rpaper/config.json");
@@ -61,7 +61,7 @@ fn run(image_path: &str) {
         let _colorscheme_thread = thread::spawn(move || {
             if cache_colorscheme {
                 if !rwal.is_cached() {
-                    log("caching colorscheme...");
+                    if verbose {log("caching colorscheme...")};
                     let img = wallpaper::get_thumbed_image(
                         &image_path,
                         &image_ops,
@@ -77,7 +77,7 @@ fn run(image_path: &str) {
                 let templates = config.templates;
                 let variables =
                     templates::fill_color_variables(&config.vars_path, &config.scheme_file);
-                log("applying templates...");
+                    if verbose {log("applying templates...")};
                 templates::apply_templates(templates, variables);
             }
         });
@@ -102,10 +102,11 @@ fn run(image_path: &str) {
                     &image_ops,
                     &image_resize_algorithm,
                     &displays,
+                    verbose,
                 );
 
                 if set_wallpaper {
-                    log("setting wallpapers...");
+                    if verbose {log("setting wallpapers...")};
                     wallpaper::set(
                         &displays,
                         &image_meta.cache_paths(),
@@ -178,16 +179,16 @@ fn main() {
 
     let path = Path::new(&argv[1]);
     if path.is_dir() {
-        log("looking for images...");
+        if verbose {log("looking for images...")};
         let images = get_images_from_dir(&argv[1]);
         if argv.contains(&"--cache".to_string()) {
-            log("caching images...");
+            if verbose {log("caching images...")};
             for chunk in images.chunks(6) {
                 let mut threads = Vec::new();
 
                 for image in chunk {
                     let image = image.clone();
-                    let thread = thread::spawn(move || run(&image));
+                    let thread = thread::spawn(move || run(&image, verbose));
                     threads.push(thread);
                 }
 
@@ -200,11 +201,11 @@ fn main() {
             let random_image = images.choose(&mut rng).cloned();
 
             if let Some(ref random_image) = random_image {
-                log(&format!("selected image: {}", &random_image));
-                run(random_image)
+                if verbose {log(&format!("selected image: {}", &random_image))};
+                run(random_image, verbose)
             }
         }
     } else if path.is_file() {
-        run(&argv[1])
+        run(&argv[1], verbose)
     }
 }

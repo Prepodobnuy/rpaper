@@ -113,12 +113,13 @@ pub fn cache(
     image_ops: &ImageOperations,
     image_resize_algorithm: &str,
     displays: &Vec<displays::Display>,
+    verbose: bool,
 ) {
     let mut threads = Vec::new();
 
     for (i, path) in cache_paths.iter().enumerate() {
         if !Path::new(&path).exists() {
-            println!("caching {} to {}", image_name, displays[i].name);
+            if verbose {println!("caching {} to {}", image_name, displays[i].name)};
             let display = displays[i].clone();
             let img_path = String::from(image_path);
             let displays = displays.clone();

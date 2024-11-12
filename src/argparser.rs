@@ -110,9 +110,9 @@ impl Args {
                 "clamp_min" =>     rwal_clamp_min = get_f32(value),
                 "clamp_max" =>     rwal_clamp_max = get_f32(value),
                 
-                "--displays" | "-d" =>  displays = get_string(value),
-                "--templates" | "-t" => templates = get_string(value),
-                "--variables" | "-v" => variables = get_string(value),
+                "--displays" =>  displays = get_string(value),
+                "--templates" => templates = get_string(value),
+                "--variables" => variables = get_string(value),
                 _ => {},
             }
         }
