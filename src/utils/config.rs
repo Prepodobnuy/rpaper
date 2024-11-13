@@ -7,6 +7,8 @@ use crate::templates::Template;
 use crate::utils::directory::expand_user;
 use crate::argparser::Args;
 
+use super::directory::{cache_dir, rwal_cache_dir};
+
 #[derive(Clone)]
 pub struct Config {
     pub cache_dir: String,
@@ -40,15 +42,11 @@ pub struct RwalParams {
 
 #[derive(Clone)]
 pub struct ImageOperations {
-    pub change_contrast: bool,
-    pub change_brightness: bool,
-    pub change_huerotate: bool,
-    pub change_blur: bool,
     pub flip_h: bool,
     pub flip_v: bool,
     pub invert: bool,
     pub contrast: f32,
-    pub brightness: f32,
+    pub brightness: i32,
     pub huerotate: i32,
     pub blur: f32,
 }
@@ -65,12 +63,8 @@ impl Config {
             None => config_data["vars_path"].as_str().unwrap(),
         });
 
-        let cache_dir = expand_user(match &args.rpaper_cache_dir {
-            Some(path) => path,
-            None => config_data["cache_dir"]
-                .as_str()
-                .unwrap_or("~/.cache/rpaper/Wallpapers"),
-        });
+        let cache_dir = cache_dir();
+
         let scheme_file = expand_user(match &args.rpaper_scheme_file {
             Some(path) => path,
             None => config_data["scheme_file"]
@@ -141,28 +135,6 @@ impl Config {
 }
 
 fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
-    let change_contrast = match args.image_processing_change_contrast {
-        Some(val) => val,
-        None => config_data["imgp_change_contrast"]
-            .as_bool()
-            .unwrap_or(false),
-    };
-    let change_brightness = match args.image_processing_change_brigtness {
-        Some(val) => val,
-        None => config_data["imgp_change_brightness"]
-            .as_bool()
-            .unwrap_or(false),
-    };
-    let change_huerotate = match args.image_processing_change_hue {
-        Some(val) => val,
-        None => config_data["imgp_change_huerotate"]
-            .as_bool()
-            .unwrap_or(false),
-    };
-    let change_blur = match args.image_processing_change_blur {
-        Some(val) => val,
-        None => config_data["imgp_change_blur"].as_bool().unwrap_or(false),
-    };
     let flip_h = match args.image_processing_h_flip {
         Some(val) => val,
         None => config_data["imgp_flip_h"].as_bool().unwrap_or(false),
@@ -178,26 +150,22 @@ fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
 
     let contrast = match args.image_processing_contrast {
         Some(val) => val,
-        None => config_data["contrast"].as_f64().unwrap_or(0.0) as f32,
+        None => config_data["imgp_contrast"].as_f64().unwrap_or(0.0) as f32,
     };
     let brightness = match args.image_processing_brigtness {
         Some(val) => val,
-        None => config_data["brightness"].as_f64().unwrap_or(0.0) as f32,
+        None => config_data["imgp_brightness"].as_i64().unwrap_or(0) as i32,
     };
     let huerotate = match args.image_processing_hue {
         Some(val) => val,
-        None => config_data["huerotate"].as_i64().unwrap_or(0) as i32,
+        None => config_data["imgp_huerotate"].as_i64().unwrap_or(0) as i32,
     };
     let blur = match args.image_processing_blur {
         Some(val) => val,
-        None => config_data["blur"].as_f64().unwrap_or(0.0) as f32,
+        None => config_data["imgp_blur"].as_f64().unwrap_or(0.0) as f32,
     };
 
     ImageOperations {
-        change_contrast,
-        change_brightness,
-        change_huerotate,
-        change_blur,
         flip_h,
         flip_v,
         invert,
@@ -210,12 +178,7 @@ fn get_image_operations(config_data: &Value, args: &Args) -> ImageOperations {
 }
 
 fn get_rwal_params(config_data: &Value, args: &Args) -> RwalParams {
-    let cache_dir = expand_user(match &args.rwal_cache_dir {
-        Some(val) => val.as_str(),
-        None => config_data["rwal_cache_dir"]
-            .as_str()
-            .unwrap_or("~/.cache/rpaper/rwal"),
-    });
+    let cache_dir = rwal_cache_dir();
     let thumb_w = match args.rwal_thumb_w {
         Some(val) => val,
         None => config_data["rwal_thumb_w"].as_u64().unwrap_or(200) as u32,

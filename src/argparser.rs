@@ -3,7 +3,6 @@ use std::env;
 #[derive(Clone)]
 pub struct Args {
     pub rpaper_vars_path: Option<String>,
-    pub rpaper_cache_dir: Option<String>,
     pub rpaper_scheme_file: Option<String>,
     pub rpaper_wall_command: Option<String>,
     pub rpaper_resize_algorithm: Option<String>,
@@ -12,19 +11,14 @@ pub struct Args {
     pub rpaper_set_templates: Option<bool>,
     pub rpaper_set_walls: Option<bool>,
 
-    pub image_processing_change_contrast: Option<bool>,
-    pub image_processing_change_brigtness: Option<bool>,
-    pub image_processing_change_hue: Option<bool>,
-    pub image_processing_change_blur: Option<bool>,
     pub image_processing_invert: Option<bool>,
     pub image_processing_h_flip: Option<bool>,
     pub image_processing_v_flip: Option<bool>,
     pub image_processing_contrast: Option<f32>,
-    pub image_processing_brigtness: Option<f32>,
+    pub image_processing_brigtness: Option<i32>,
     pub image_processing_hue: Option<i32>,
     pub image_processing_blur: Option<f32>,
 
-    pub rwal_cache_dir: Option<String>,
     pub rwal_thumb_w: Option<u32>,
     pub rwal_thumb_h: Option<u32>,
     pub rwal_accent: Option<u32>,
@@ -33,7 +27,7 @@ pub struct Args {
 
     pub displays: Option<String>,
     pub templates: Option<String>,
-    pub variables: Option<String>, // TODO implement a one-line variation of writing variables via terminal
+    pub variables: Option<String>, // TODO implement a one-line variation of writing variables via terminal // TODO move color variables into .template
 }
 
 impl Args {
@@ -41,7 +35,6 @@ impl Args {
         let args: Vec<String> = env::args().collect();
         
         let mut rpaper_vars_path = None;
-        let mut rpaper_cache_dir = None;
         let mut rpaper_scheme_file = None;
         let mut rpaper_wall_command = None;
         let mut rpaper_resize_algorithm = None;
@@ -50,10 +43,6 @@ impl Args {
         let mut rpaper_set_templates = None;
         let mut rpaper_set_walls = None;
         
-        let mut image_processing_change_contrast = None;
-        let mut image_processing_change_brigtness = None;
-        let mut image_processing_change_hue = None;
-        let mut image_processing_change_blur = None;
         let mut image_processing_invert = None;
         let mut image_processing_h_flip = None;
         let mut image_processing_v_flip = None;
@@ -62,7 +51,6 @@ impl Args {
         let mut image_processing_hue = None;
         let mut image_processing_blur = None;
         
-        let mut rwal_cache_dir = None;
         let mut rwal_thumb_w = None;
         let mut rwal_thumb_h = None;
         let mut rwal_accent = None;
@@ -82,7 +70,6 @@ impl Args {
             }
             match arg.as_str() {
                 "--vars-path" =>          rpaper_vars_path = get_string(value),
-                "--cache-dir" =>          rpaper_cache_dir = get_string(value),
                 "--scheme-file" =>        rpaper_scheme_file = get_string(value),
                 "--wall-command" =>       rpaper_wall_command = get_string(value),
                 "--resize-algorithm" =>   rpaper_resize_algorithm = get_string(value),
@@ -91,19 +78,14 @@ impl Args {
                 "--set-templates" =>      rpaper_set_templates = get_bool(value),
                 "--set-wallpaper" =>      rpaper_set_walls = get_bool(value),
                 
-                "--change-contrast" =>  image_processing_change_contrast = get_bool(value),
-                "--change-brigtness" => image_processing_change_brigtness = get_bool(value),
-                "--change-hue" =>       image_processing_change_hue = get_bool(value),
-                "--change-blur" =>      image_processing_change_blur = get_bool(value),
                 "--invert" =>           image_processing_invert = get_bool(value),
                 "--h-flip" =>           image_processing_h_flip = get_bool(value),
                 "--v-flip" =>           image_processing_v_flip = get_bool(value),
                 "--contrast" =>         image_processing_contrast = get_f32(value),
-                "--brigtness" =>        image_processing_brigtness = get_f32(value),
+                "--brigtness" =>        image_processing_brigtness = get_i32(value),
                 "--hue" =>              image_processing_hue = get_i32(value),
                 "--blur" =>             image_processing_blur = get_f32(value),
                 
-                "--r-cache-dir" => rwal_cache_dir = get_string(value),
                 "thumb_w" =>       rwal_thumb_w = get_u32(value),
                 "thumb_h" =>       rwal_thumb_h = get_u32(value),
                 "accent" =>        rwal_accent = get_u32(value),
@@ -119,7 +101,6 @@ impl Args {
         
         Args {
             rpaper_vars_path,
-            rpaper_cache_dir,
             rpaper_scheme_file,
             rpaper_wall_command,
             rpaper_resize_algorithm,
@@ -127,10 +108,6 @@ impl Args {
             rpaper_cache_walls,
             rpaper_set_templates,
             rpaper_set_walls,
-            image_processing_change_contrast,
-            image_processing_change_brigtness,
-            image_processing_change_hue,
-            image_processing_change_blur,
             image_processing_invert,
             image_processing_h_flip,
             image_processing_v_flip,
@@ -138,7 +115,6 @@ impl Args {
             image_processing_brigtness,
             image_processing_hue,
             image_processing_blur,
-            rwal_cache_dir,
             rwal_thumb_w,
             rwal_thumb_h,
             rwal_accent,

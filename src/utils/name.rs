@@ -130,27 +130,13 @@ fn hash(string: &str) -> String {
 pub fn get_img_ops_affected_name(image_name: &str, image_ops: &ImageOperations) -> String {
     let mut image_name: String = String::from(image_name);
 
-    if image_ops.change_contrast {
-        image_name = format!("CR{}{}", image_ops.contrast, image_name)
-    }
-    if image_ops.change_brightness {
-        image_name = format!("BR{}{}", image_ops.brightness, image_name)
-    }
-    if image_ops.change_huerotate {
-        image_name = format!("HUE{}{}", image_ops.huerotate, image_name)
-    }
-    if image_ops.change_blur {
-        image_name = format!("BLUR{}{}", image_ops.blur, image_name)
-    }
-    if image_ops.flip_h {
-        image_name = format!("H_FL{}", image_name)
-    }
-    if image_ops.flip_v {
-        image_name = format!("V_FL{}", image_name)
-    }
-    if image_ops.invert {
-        image_name = format!("INV{}", image_name)
-    }
+    image_name = format!("{}{}", image_ops.contrast, image_name);
+    image_name = format!("{}{}", image_ops.brightness, image_name);
+    image_name = format!("{}{}", image_ops.huerotate, image_name);
+    image_name = format!("{}{}", image_ops.blur, image_name);
+    image_name = format!("{}{}", image_ops.flip_h, image_name);
+    image_name = format!("{}{}", image_ops.flip_v, image_name);
+    image_name = format!("{}{}", image_ops.invert, image_name);
 
     image_name
 }

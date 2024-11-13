@@ -12,13 +12,16 @@ use std::thread;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use utils::directory::check_dirs;
 
 use crate::utils::config::Config;
 use crate::utils::directory::expand_user;
 use crate::utils::name::ImageMeta;
 use crate::utils::logger::log;
 
+
 fn run(image_path: &str, verbose: bool) {
+    let _ = check_dirs();
     let argv: Vec<String> = env::args().collect();
 
     let default_config_path: String = expand_user("~/.config/rpaper/config.json");
@@ -83,7 +86,7 @@ fn run(image_path: &str, verbose: bool) {
         threads.push(_colorscheme_thread);
     }
 
-    if cache_wallpaper {
+    if cache_wallpaper || set_wallpaper {
         // wallpapers processing
         let image_name = image_meta.image();
         let image_path = image_meta.image_path();
@@ -103,16 +106,16 @@ fn run(image_path: &str, verbose: bool) {
                     &displays,
                     verbose,
                 );
+            };
 
-                if set_wallpaper {
-                    if verbose {log("setting wallpapers...")};
-                    wallpaper::set(
-                        &displays,
-                        &image_meta.cache_paths(),
-                        &image_meta.image_path(),
-                        &config.wall_command,
-                    );
-                }
+            if set_wallpaper {
+                if verbose {log("setting wallpapers...")};
+                wallpaper::set(
+                    &displays,
+                    &image_meta.cache_paths(),
+                    &image_meta.image_path(),
+                    &config.wall_command,
+                );
             };
         });
         threads.push(_wallpaper_thread);

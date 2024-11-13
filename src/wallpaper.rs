@@ -55,16 +55,16 @@ pub fn get_image(
         displays_max_height,
     );
     _image = _image.resize(nw, nh, img_ra);
-    if image_ops.change_contrast {
+    if image_ops.contrast != 0.0 {
         _image = _image.adjust_contrast(image_ops.contrast)
     }
-    if image_ops.change_brightness {
-        _image = _image.brighten(image_ops.brightness as i32) // TODO fix this heck, britness must be an i32 not f32
+    if image_ops.brightness != 0 {
+        _image = _image.brighten(image_ops.brightness)
     }
-    if image_ops.change_huerotate {
+    if image_ops.huerotate != 0 {
         _image = _image.huerotate(image_ops.huerotate)
     }
-    if image_ops.change_blur {
+    if image_ops.blur != 0.0 {
         _image = _image.blur(image_ops.blur)
     }
     if image_ops.flip_h {
@@ -82,16 +82,16 @@ pub fn get_image(
 pub fn get_thumbed_image(image_path: &str, image_ops: &ImageOperations, w: u32, h: u32) -> RgbImage {
     let mut _image = image::open(image_path).unwrap();
     _image = _image.resize_exact(w, h, Nearest);
-    if image_ops.change_contrast {
+    if image_ops.contrast != 0.0 {
         _image = _image.adjust_contrast(image_ops.contrast)
     }
-    if image_ops.change_brightness {
-        _image = _image.brighten(image_ops.brightness as i32) // 61 line lol
+    if image_ops.brightness != 0 {
+        _image = _image.brighten(image_ops.brightness)
     }
-    if image_ops.change_huerotate {
+    if image_ops.huerotate != 0 {
         _image = _image.huerotate(image_ops.huerotate)
     }
-    if image_ops.change_blur {
+    if image_ops.blur != 0.0 {
         _image = _image.blur(image_ops.blur)
     }
     if image_ops.flip_h {

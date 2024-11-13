@@ -1,3 +1,5 @@
+use std::fs;
+use std::io;
 use std::env;
 use std::path::PathBuf;
 
@@ -14,4 +16,19 @@ pub fn expand_user(path: &str) -> String {
 
     eprintln!("Error: HOME environment variable is not set.");
     std::process::exit(1);
+}
+
+pub fn check_dirs() -> io::Result<()> {
+    fs::create_dir_all(cache_dir())?;
+    fs::create_dir_all(rwal_cache_dir())?;
+
+    Ok(())
+}
+
+pub fn cache_dir() -> String {
+    expand_user("~/.cache/rpaper/wallpapers")
+}
+
+pub fn rwal_cache_dir() -> String {
+    expand_user("~/.cache/rpaper/rwal")
 }
