@@ -23,14 +23,14 @@ feel free
 ## Todo
 - ~~get rid of pywal~~
 - ~~add arguments~~
+- ~~write sane readme~~
 - video support using [mpvpaper](https://github.com/GhostNaN/mpvpaper)
 - add diferent image setting modes (fit/fill/crop/etc)
 - implement sane --help
 - write wiki
-- write sane readme
 - add animated files splitting support (they split without animation)
 - get rid of wallpaper backends (swww/swaybg/etc.)
 - rpaper release
 ## Thanks to
 - [colorz](https://github.com/metakirby5/colorz) for pallete generator algorithm
-- [osu](https://github.com/ppy/osu) for the idea of ​​calling cache files their sha256 sum
+- [osu](https://github.com/ppy/osu) for the idea of ​​calling cache files by their sha256 sum
