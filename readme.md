@@ -23,6 +23,7 @@ feel free
 ## Todo
 - ~~get rid of pywal~~
 - ~~add arguments~~
+- video support using [mpvpaper](https://github.com/GhostNaN/mpvpaper)
 - add diferent image setting modes (fit/fill/crop/etc)
 - implement sane --help
 - write wiki
