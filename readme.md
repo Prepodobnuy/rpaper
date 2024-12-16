@@ -15,7 +15,6 @@ Rpaper is still **under active development**, so don't be surprised that after t
 - idk
 ## How to
 - [install](https://github.com/Prepodobnuy/rpaper/blob/main/md/install.md)
-- [update](https://github.com/Prepodobnuy/rpaper/blob/main/md/update.md)
 - [configure](https://github.com/Prepodobnuy/rpaper/blob/main/md/configure.md)
 - [use](https://github.com/Prepodobnuy/rpaper/blob/main/md/use.md)
 ## Contributing
