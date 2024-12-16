@@ -5,7 +5,7 @@
       "w": 1920,
       "h": 1080,
       "x": 1080,
-      "y": 305
+      "y": 100
     },
     {
       "name": "DP-1",
@@ -16,7 +16,6 @@
     }
   ],
   "templates": [
-    "~/test_template.template",
     "~/.config/rpaper/rpaper_templates/alacritty.template",
     "~/.config/rpaper/rpaper_templates/oomox_shell.template",
     "~/.config/rpaper/rpaper_templates/rofi-wide.template",
@@ -24,10 +23,10 @@
     "~/.config/rpaper/rpaper_templates/waybar.template",
     "~/.config/rpaper/rpaper_templates/qt6ct-kde.template",
     "~/.config/rpaper/rpaper_templates/swaync.template",
-    "~/.config/rpaper/rpaper_templates/vesktop.template"
-  ],
+    "~/.config/rpaper/rpaper_templates/vesktop.template",
+    "~/.config/rpaper/rpaper_templates/rofi-switcher.template"
+    ],
   "vars_path": "~/.config/rpaper/color_variables.json",
-  "cache_dir": "~/.cache/rpaper/Wallpapers",
   "scheme_file": "~/.cache/rpaper/rwal/colors",
   "wall_command": "swaybg -o {display} -i {image}",
   "resize_algorithm": "Lanczos3",
@@ -37,19 +36,14 @@
   "set_templates": true,
   "set_walls": true,
 
-  "imgp_change_contrast": false,
-  "imgp_contrast": -15,
-  "imgp_change_brightness": false,
-  "imgp_brightness": -60,
-  "imgp_change_huerotate": false,
-  "imgp_huerotate": 200,
-  "imgp_change_blur": false,
-  "imgp_blur": 7.5,
+  "imgp_contrast": 0,
+  "imgp_brightness": 0,
+  "imgp_huerotate": 0,
+  "imgp_blur": 0.0,
   "imgp_invert": false,
   "imgp_flip_h": false,
   "imgp_flip_v": false,
 
-  "rwal_cache_dir": "~/.cache/rpaper/rwal",
   "rwal_thumb_w": 210,
   "rwal_thumb_h": 210,
   "rwal_accent_color": 4,
