@@ -42,6 +42,17 @@ impl Config {
             self.image_operations = read_image_operations(&value);
         }
     }
+
+    pub fn read_from_string(&mut self, string: String) {
+        if let Some(value) = read_value_from_string(string) {
+            self.displays = read_displays(&value);
+            self.templates = read_templates(&value);
+            self.wallpaper_set_command = read_wallpaper_set_command(&value);
+            self.resize_algorithm = read_resize_algorithm(&value);
+            self.rwal_params = read_rwal_params(&value);
+            self.image_operations = read_image_operations(&value);
+        }
+    }
 }
 
 fn read_value(path: &str) -> Option<Value> {
@@ -52,6 +63,13 @@ fn read_value(path: &str) -> Option<Value> {
         if let Ok(data) = serde_json::from_str(&json_data) {
             return data;
         }
+    }
+    None
+}
+
+fn read_value_from_string(string: String) -> Option<Value> {
+    if let Ok(data) = serde_json::from_str(&string) {
+        return data;
     }
     None
 }

@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 use std::thread;
 use std::os::unix::net::UnixListener;
-use std::io::{BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader, Read};
 use std::time::Duration;
 use std::fs::{self, File};
 use std::path::Path;
@@ -45,8 +45,8 @@ impl Daemon {
         loop {
             if let Ok(received_data) = self.rx.try_recv() {
                 match received_data {
-                    MpscData::ConfigChanged => {
-                        self.config.read(CONFIG_PATH);
+                    MpscData::ConfigChanged(value) => {
+                        self.config.read_from_string(value);
                         println!("CONFIG CHANGED");
                     },
                     MpscData::ErrorCreatingDirectory => { println!("ERROR CREATING DIRECTORY"); },
@@ -64,7 +64,7 @@ impl Daemon {
 }
 
 pub enum MpscData {
-    ConfigChanged,
+    ConfigChanged(String),
     ErrorCreatingDirectory,
     SuccesCreatingDirectory,
     ListenerRequest(String),
@@ -121,12 +121,13 @@ fn start_directory_watcher(directories: &Vec<String>, tx: mpsc::Sender<MpscData>
 fn start_config_watcher(config_path: &str, tx: mpsc::Sender<MpscData>) {
     let config_path = String::from(config_path);
     let _ = thread::Builder::new().name("config watcher thread".to_string()).spawn(move || {
-        if let Ok(mut hash) = read_file(&config_path) {
+        if let Ok(file_caption) = read_file(&config_path) {
+            let mut hash = file_caption.hash;
             loop {
-                if let Ok(new_hash) = read_file(&config_path) {
-                    if new_hash != hash {
-                        hash = new_hash;
-                        let _ = tx.send(MpscData::ConfigChanged);
+                if let Ok(file_caption) = read_file(&config_path) {
+                    if file_caption.hash != hash {
+                        hash = file_caption.hash;
+                        let _ = tx.send(MpscData::ConfigChanged(file_caption.caption));
                     }
                 }
                 thread::sleep(Duration::from_millis(1000));
@@ -136,18 +137,23 @@ fn start_config_watcher(config_path: &str, tx: mpsc::Sender<MpscData>) {
     });
 }
 
-fn read_file(path: &str) -> Result<String, ()> {
+struct FileCaption {
+    hash: String,
+    caption: String,
+}
+
+fn read_file(path: &str) -> Result<FileCaption, io::Error> {
     let mut hasher = Sha256::new();
+    let mut file = File::open(path)?;
+    let mut buffer = Vec::new();
 
-    if let Ok(mut file) = File::open(path) {
-        let mut buffer = Vec::new();
-        if let Ok(_) = file.read_to_end(&mut buffer) {
-            hasher.update(&buffer);
-            let result = hasher.finalize();
-            let hash_hex = hex::encode(result);
-            return Ok(hash_hex);
-        }
-    }
+    file.read_to_end(&mut buffer)?;
+    hasher.update(&buffer);
 
-    Err(())
+    let hash = hex::encode(hasher.finalize());
+    let caption = String::from_utf8(buffer).map_err(|e| {
+        io::Error::new(io::ErrorKind::InvalidData, e)
+    })?;
+
+    Ok(FileCaption { hash, caption })
 }
