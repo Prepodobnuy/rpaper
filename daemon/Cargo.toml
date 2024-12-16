@@ -1,0 +1,21 @@
+[package]
+name = "rpaper-daemon"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+color_space = "0.5.4"
+hex = "0.4.3"
+image = "0.25.5"
+kmeans_colors = "0.6.0"
+mio = "1.0.3"
+palette = "0.7.6"
+serde_json = "1.0.133"
+sha2 = "0.10.8"
+sysinfo = "0.32.1"

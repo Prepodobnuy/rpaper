@@ -1,19 +1,25 @@
-[package]
-name = "rpaper"
-description = "Wallpaper setter & color palette generator written on rust."
-version = "0.3.121124"
-edition = "2021"
-authors = ["prepodobnuy <zvfvbycsy6@gmail.com>"]
-license = "MIT"
-repository = "https://github.com/Prepodobnuy/rpaper"
+[workspace]
+resolver = "2"
+members = ["client", "daemon"]
+default-members = ["client", "daemon"]
 
-[dependencies]
-color_space = "0.5.4"
-hex = "0.4.3"
-image = "0.25.4"
-kmeans_colors = "0.6.0"
-palette = "0.7.6"
-rand = "0.8.5"
-serde = { version = "1.0.213", features = ["derive"] }
-serde_json = "1.0.132"
-sha2 = "0.10.8"
+[workspace.package]
+edition = "2021"
+rust-version = "1.80"
+description = "Wallpaper setter & color palette generator written on rust."
+version = "0.4.16122024"
+authors = ["Prepodobnuy <prepodobnuy@inbox.ru>"]
+license = "MIT"
+license-file = "LICENSE"
+
+[workspace.lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+perf = { level = "deny", priority = -1 }
+style = { level = "deny", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+module-name-repetitions = "allow"
+missing-errors-doc = "allow"
+missing-panics-doc = "allow"
