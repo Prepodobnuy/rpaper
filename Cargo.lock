@@ -987,6 +987,9 @@ checksum = "57397d16646700483b67d2dd6511d79318f9d057fdbd21a4066aeac8b41d310a"
 [[package]]
 name = "rpaper"
 version = "0.4.16122024"
+dependencies = [
+ "rand",
+]
 
 [[package]]
 name = "rpaper-daemon"

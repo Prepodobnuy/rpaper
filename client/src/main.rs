@@ -3,6 +3,9 @@ use std::io::{Write, BufReader, BufRead};
 use std::path::{Path, PathBuf};
 use std::fs;
 
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
 fn send(message: String) -> std::io::Result<()> {
     let mut stream = UnixStream::connect(SOCKET_PATH)?;
     let mut reader = BufReader::new(stream.try_clone()?);
@@ -15,7 +18,32 @@ fn send(message: String) -> std::io::Result<()> {
     Ok(())
 }
 
+fn is_dir(path: &str) -> bool {
+    fs::metadata(path).map(|meta| meta.is_dir()).unwrap_or(false)
+}
+
+fn select_random(strings: Vec<String>) -> String {
+    let mut rng = thread_rng();
+
+    if let Some(random_string) = strings.choose(&mut rng) {
+        random_string.to_string()
+    } else {
+        panic!("Directory is empty")
+    }
+}
+
 fn replace_arguments(args: &Vec<String>) -> Result<String, String> {
+    let mut args: Vec<String> = args.clone();
+    
+    if let Some(pos) = args.iter().position(|arg| arg == "-I") {
+        if pos + 1 < args.len() {
+            let next_element = &args[pos + 1];
+            if is_dir(&next_element) {
+                args[pos + 1] = select_random(get_images_from_dir(&next_element));
+            }
+        }
+    }
+
     let mut result = args.join("    ")
         .replace("-S", "W_SET")
         .replace("-W", "W_CACHE")

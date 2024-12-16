@@ -8,3 +8,6 @@ license-file.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+rand = "0.8.5"
