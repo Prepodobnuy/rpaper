@@ -27,6 +27,11 @@ before:echo "wow im in a rpaper template"
 # rpaper does not wait for a 'after command' to be executed
 after:echo "me too :p"
 
+#Colors section
+#Syntax: VARIABLE_NAME:COLOR_ID:ADDITIONAL_LIGHTNESS:INVERSED(0/1)
+[colors]
+colorvariablename:0:10:0
+
 # Caption section
 [caption]
 // some important config file here
