@@ -68,6 +68,10 @@ pub fn run_rwal(image_path: &str, color_scheme_path: &str, rwal_params: &RwalPar
         cache_rwal(image_path, color_scheme_path, rwal_params, image_ops);
     }
 
+    if let Ok(colors) = fs::read_to_string(color_scheme_path) {
+        let _ = fs::write(expand_user(COLORS_PATH), &colors);
+    }
+
     if let Ok(colors) = fs::read_to_string(expand_user(COLORS_PATH)) {
         return colors.lines().map(|line| line.to_string()).collect();
     }
@@ -89,7 +93,7 @@ pub fn cache_rwal(image_path: &str, color_scheme_path: &str, rwal_params: &RwalP
         rwal_params.accent_color,
         rwal_params.clamp_range,
     ).join("\n");
-    
+
     fs::write(color_scheme_path, &pallete).unwrap();
     fs::write(expand_user(COLORS_PATH), &pallete).unwrap();
 }
