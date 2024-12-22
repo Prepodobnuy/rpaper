@@ -2,6 +2,7 @@ use std::os::unix::net::UnixStream;
 use std::io::{Write, BufReader, BufRead};
 use std::path::{Path, PathBuf};
 use std::fs;
+use std::str::FromStr;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -22,6 +23,10 @@ fn is_dir(path: &str) -> bool {
     fs::metadata(path).map(|meta| meta.is_dir()).unwrap_or(false)
 }
 
+fn is_file(path: &str) -> bool {
+    fs::metadata(path).map(|meta| meta.is_file()).unwrap_or(false)
+}
+
 fn select_random(strings: Vec<String>) -> String {
     let mut rng = thread_rng();
 
@@ -39,7 +44,10 @@ fn replace_arguments(args: &Vec<String>) -> Result<String, String> {
         if pos + 1 < args.len() {
             let next_element = &args[pos + 1];
             if is_dir(&next_element) {
-                args[pos + 1] = select_random(get_images_from_dir(&next_element));
+                args[pos + 1] = get_absolute_path(select_random(get_images_from_dir(&next_element)));
+            } 
+            else if is_file(&next_element) {
+                args[pos + 1] = get_absolute_path(next_element.to_string());
             }
         }
     }
@@ -87,8 +95,12 @@ fn is_file_image(extension: &str) -> bool {
     )
 }
 
-fn get_absolute_path(path: PathBuf) -> PathBuf {
-    path.canonicalize().unwrap_or_else(|_| path)
+fn get_absolute_path(path: String) -> String {
+    let Ok(path) = PathBuf::from_str(&path);
+    
+    return path.canonicalize().unwrap_or_else(|_| path)
+        .to_string_lossy()
+        .to_string();
 }
 
 fn get_images_from_dir(dir: &str) -> Vec<String> {
@@ -101,17 +113,13 @@ fn get_images_from_dir(dir: &str) -> Vec<String> {
         let file_type = entry.file_type().unwrap();
         if file_type.is_dir() {
             res.extend(get_images_from_dir(
-                &get_absolute_path(entry.path())
-                    .to_string_lossy()
-                    .to_string(),
+                &get_absolute_path(entry.path().to_string_lossy().to_string())
             ))
         } else if file_type.is_file() {
             if let Some(extension) = entry.path().extension() {
                 if is_file_image(extension.to_str().unwrap_or("")) {
                     res.push(
-                        get_absolute_path(entry.path())
-                            .to_string_lossy()
-                            .to_string(),
+                        get_absolute_path(entry.path().to_string_lossy().to_string())
                     )
                 }
             }
