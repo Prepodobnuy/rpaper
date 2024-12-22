@@ -49,7 +49,7 @@ fn get_thumbed_image(image_path: &str, image_ops: &ImageOperations, w: u32, h: u
         _image = _image.huerotate(image_ops.hue)
     }
     if image_ops.blur != 0.0 {
-        _image = _image.blur(image_ops.blur)
+        _image = _image.blur(image_ops.blur) // sigma
     }
     if image_ops.flip_h {
         _image = _image.fliph()
@@ -153,6 +153,13 @@ fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> 
         rgb_colors.push(RGB::from(hsv));
     }
 
+    if rgb_colors.len() < 6 {
+        println!("The number of generated colors is not enough! \nNeeded colors: 5\nGenerated colors: {}", rgb_colors.len());
+        for _ in 0..5 - rgb_colors.len() {
+            rgb_colors.push(RGB::new(100.0, 100.0, 100.0));
+        }
+    }
+
     let accent = rgb_colors[accent_color as usize];
     let bg_color = merge_rgb(RGB::new(0.0, 0.0, 0.0), accent.clone());
     let fg_color = merge_rgb(RGB::new(255.0, 255.0, 255.0), accent.clone());
@@ -181,9 +188,9 @@ fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> 
         _tmp = format!("#{}{}{}", h_r, h_g, h_b);
         res.push(_tmp)
     }
-    let sres = res.clone();
-    res.extend(sres);
-
+    
+    res.extend(res.clone());
+    
     res
 }
 
