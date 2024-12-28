@@ -10,7 +10,7 @@ use palette::{IntoColor, Lab, Srgb};
 use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 
 use crate::wallpaper::display::ImageOperations;
-use crate::{expand_user, COLORS_DIR, COLORS_PATH};
+use crate::{expand_user, COLORS_PATH};
 
 #[derive(Clone)]
 pub struct RwalParams {

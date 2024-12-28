@@ -1,8 +1,8 @@
 use std::{path::Path, thread};
 
-use crate::{daemon::config::Config, encode_string, expand_user, get_image_name, wallpaper::display::ImageOperations, COLORS_DIR, COLORS_PATH};
+use crate::{daemon::config::Config, encode_string, expand_user, get_image_name, wallpaper::display::ImageOperations, COLORS_DIR};
 
-use super::{rwal::{cache_rwal, run_rwal, RwalParams}, template};
+use super::rwal::{cache_rwal, run_rwal, RwalParams};
 
 pub fn set_scheme(config: &Config, image_path: &str) {
     if let Some(image_ops) = &config.image_operations {
