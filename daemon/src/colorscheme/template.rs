@@ -297,48 +297,33 @@ fn get_colors(input: Vec<String>) -> Option<Vec<Color>> {
     for raw_color in input {
         let splitted: Vec<&str> = raw_color.split(":").collect();
 
-        let mut name = String::new();
-        let mut index: usize = 0;
+        let name;
+        let index;
         let mut change = 0;
         let mut inversed = false;
 
         match splitted.len() {
             2 => {
                 name = splitted[0].to_string();
-                if let Ok(i) = splitted[1].parse::<usize>() {
-                    index = i
-                } else {
-                    continue;
-                }
+
+                index = if let Ok(i) = splitted[1].parse::<usize>() { i } else { 0 };
             },
             3 => {
                 name = splitted[0].to_string();
-                if let Ok(i) = splitted[1].parse::<usize>() {
-                    index = i
-                } else {
-                    continue;
-                }
-                if let Ok(c) = splitted[2].parse::<i32>() {
-                    change = c
-                }
+
+                index = if let Ok(i) = splitted[1].parse::<usize>() { i } else { 0 };
+
+                change = if let Ok(c) = splitted[2].parse::<i32>() { c } else { 0 };
             },
             4 => {
                 name = splitted[0].to_string();
-                if let Ok(i) = splitted[1].parse::<usize>() {
-                    index = i
-                } else {
-                    continue;
-                }
-                if let Ok(c) = splitted[2].parse::<i32>() {
-                    change = c
-                }
-                if let Ok(i) = splitted[3].parse::<i32>() {
-                    if i == 0 {
-                        inversed = false
-                    }
-                    else if i == 1 {
-                        inversed = true
-                    }
+
+                index = if let Ok(i) = splitted[1].parse::<usize>() { i } else { 0 };
+
+                change = if let Ok(c) = splitted[2].parse::<i32>() { c } else { 0 };
+
+                if let Ok(i) = splitted[3].parse::<i32>() {                    
+                    inversed = if i == 1 { false } else { true }
                 }
             },
             _ => {
