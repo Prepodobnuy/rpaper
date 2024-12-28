@@ -131,22 +131,36 @@ impl Template {
 
             if color.name.contains("{br}") {
                 for i in 1..20 {
-                    color_values.push(ColorValue::from_hex(
+                    let mut _lighter = ColorValue::from_hex(
                         &color.name.replace("{br}", &format!("LR{}", i)),
                         &col,
                         (10 * i) + color.change,
-                    ));
-                    color_values.push(ColorValue::from_hex(
+                    );
+                    let mut _darker = ColorValue::from_hex(
                         &color.name.replace("{br}", &format!("DR{}", i)),
                         &col,
                         (-10 * i) + color.change,
-                    ));
+                    );
+
+                    if color.inversed {
+                        _lighter.inverse();
+                        _darker.inverse();
+                    }
+
+                    color_values.push(_lighter);
+                    color_values.push(_darker);
                 }
-                color_values.push(ColorValue::from_hex(
+                let mut _color_value = ColorValue::from_hex(
                     &color.name.replace("{br}", ""),
                     &col,
                     color.change,
-                ));
+                );
+
+                if color.inversed {
+                    _color_value.inverse();
+                }
+
+                color_values.push(_color_value);
             }
         }
 
@@ -209,6 +223,13 @@ impl ColorValue {
             b,
         }
     }
+
+    fn inverse(&mut self) {
+        self.r = 255 - self.r;
+        self.g = 255 - self.g;
+        self.b = 255 - self.b;
+    }
+
     fn apply(& self, format: &str, message: String) -> String {
         let format = format.replace("{HEX}", &rgb_to_hex(self.r, self.g, self.b))
             .replace("{R}", &self.r.to_string())
