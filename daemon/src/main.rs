@@ -12,6 +12,8 @@ use crate::daemon::daemon::Daemon;
 
 const SOCKET_PATH: &str = "/tmp/rpaper-daemon";
 const CONFIG_PATH: &str = "~/.config/rpaper/config.json";
+const CONFIG_DIR: &str = "~/.config/rpaper";
+const CACHE_DIR: &str = "~/.cache/rpaper";
 const COLORS_DIR: &str = "~/.cache/rpaper/rwal";
 const COLORS_PATH: &str = "~/.cache/rpaper/rwal/colors";
 const WALLPAPERS_DIR: &str = "~/.cache/rpaper/wallpapers";

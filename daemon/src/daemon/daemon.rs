@@ -7,7 +7,7 @@ use std::fs::{self, File};
 use std::path::Path;
 use sha2::{Sha256, Digest};
 
-use crate::SOCKET_PATH;
+use crate::{CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
 
@@ -25,10 +25,10 @@ impl Daemon {
         config.read(&expand_user(CONFIG_PATH));
 
         let dirs = vec![
-            expand_user("~/.cache/rpaper"),
-            expand_user("~/.cache/rpaper/wallpapers"),
-            expand_user("~/.cache/rpaper/rwal"),
-            expand_user("~/.config/rpaper"),
+            expand_user(CACHE_DIR),
+            expand_user(WALLPAPERS_DIR),
+            expand_user(COLORS_DIR),
+            expand_user(CONFIG_DIR),
         ];
 
         // directory watcher
