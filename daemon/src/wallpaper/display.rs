@@ -33,6 +33,12 @@ impl Display {
         }
     }
 
+    pub fn name(&self) -> String {self.name.clone()}
+    pub fn width(&self) -> u32 {self.w}
+    pub fn height(&self) -> u32 {self.h}
+    pub fn x(&self) -> u32 {self.x}
+    pub fn y(&self) -> u32 {self.y}
+
     pub fn from_string(string: &str) -> Result<Display, String> {
         // create Display from string
         // Example:

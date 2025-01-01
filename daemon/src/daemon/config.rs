@@ -144,3 +144,120 @@ fn read_image_operations(value: &Value) -> Option<ImageOperations> {
 
     Some(ImageOperations::new(contrast, brightness, hue, blur, invert, flip_h, flip_v))
 }
+
+trait JsonString {
+    fn json(& self) -> String {
+        String::new()
+    }
+}
+
+impl JsonString for Display {
+    fn json(& self) -> String {
+        format!(
+            "{{\"name\":\"{}\",\"w\":{},\"h\":{},\"x\":{},\"y\":{}}}",
+            self.name(),
+            self.width(),
+            self.height(),
+            self.x(),
+            self.y(),
+        )
+    }
+}
+
+impl JsonString for Vec<Display> {
+    fn json(& self) -> String {
+        let json_strings: Vec<String> = self.iter()
+            .map(|d| d.json())
+            .collect();
+
+        format!("[{}]", json_strings.join(","))
+    }
+}
+
+impl JsonString for Template {
+    fn json(& self) -> String {
+        format!(
+            "{{\"{}\"}}",
+            self.path
+        )
+    }
+}
+
+impl JsonString for Vec<Template> {
+    fn json(& self) -> String {
+        let json_strings: Vec<String> = self.into_iter()
+            .map(|t| t.json())
+            .collect();
+
+        format!("[{}]", json_strings.join(","))
+    }
+}
+
+impl JsonString for ImageOperations {
+    fn json(& self) -> String {
+        format!(
+            "{{\"contrast\":{},\"brightness\":{},\"huerotate\":{},\"blur\":{},\"invert\":{},\"flip_h\":{},\"flip_v\":{}}}",
+            self.contrast,
+            self.brightness,
+            self.hue,
+            self.blur,
+            self.invert,
+            self.flip_h,
+            self.flip_v
+        )
+    }
+}
+
+impl JsonString for RwalParams {
+    fn json(& self) -> String {
+        format!(
+            "{{\"thumb_w\":{},\"thumb_h\":{},\"accent_color\":{},\"clamp_min\":{},\"clamp_max\":{}}}",
+            self.thumb_range.0,
+            self.thumb_range.1,
+            self.accent_color,
+            self.clamp_range.0,
+            self.clamp_range.1
+        )
+    }
+}
+
+impl JsonString for Config {
+    fn json(& self) -> String {
+        format!(
+            "{{
+            \"displays\":{},
+            \"templates\":{},
+            \"impg\":{},
+            \"rwal\":{},
+            }}",
+            {
+                if let Some(displays) = &self.displays {
+                    displays.json()
+                } else {
+                    "[]".to_string()
+                }
+            },
+            {
+                if let Some(templates) = &self.templates {
+                    templates.json()
+                } else {
+                    "[]".to_string()
+                }
+            },
+            {
+                if let Some(image_operations) = &self.image_operations {
+                    image_operations.json()
+                } else {
+                    "{}".to_string()
+                }
+            },
+            {
+                if let Some(rwal_params) = &self.rwal_params {
+                    rwal_params.json()
+                } else {
+                    "{}".to_string()
+                }
+            }
+        )
+    }
+}
