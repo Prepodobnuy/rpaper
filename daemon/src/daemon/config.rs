@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::Read;
 
+use serde_json::value;
 use serde_json::Value;
 
 use crate::expand_user;
@@ -119,28 +120,32 @@ fn read_resize_algorithm(value: &Value) -> Option<String> {
 }
 
 fn read_rwal_params(value: &Value) -> Option<RwalParams> {
-    let thumb_w = value["rwal_thumb_w"].as_u64().unwrap_or(200) as u32;
-    let thumb_h = value["rwal_thumb_h"].as_u64().unwrap_or(200) as u32;
+    let rwal = value.get("rwal")?;
+
+    let thumb_w = rwal["thumb_w"].as_u64().unwrap_or(200) as u32;
+    let thumb_h = rwal["thumb_h"].as_u64().unwrap_or(200) as u32;
     let thumb_range = (thumb_w, thumb_h);
 
-    let clamp_min = value["rwal_clamp_min"].as_f64().unwrap_or(140.0) as f32;
-    let clamp_max = value["rwal_clamp_max"].as_f64().unwrap_or(170.0) as f32;
+    let clamp_min = rwal["clamp_min"].as_f64().unwrap_or(140.0) as f32;
+    let clamp_max = rwal["clamp_max"].as_f64().unwrap_or(170.0) as f32;
     let clamp_range = (clamp_min, clamp_max);
     
-    let accent_color = value["rwal_accent_color"].as_u64().unwrap_or(4) as u32;
-    let colors = value["rwal_colors"].as_u64().unwrap_or(7) as u32;
+    let accent_color = rwal["accent_color"].as_u64().unwrap_or(4) as u32;
+    let colors = rwal["rwal_colors"].as_u64().unwrap_or(7) as u32;
 
     Some(RwalParams::new(thumb_range, clamp_range, accent_color, colors))
 }
 
 fn read_image_operations(value: &Value) -> Option<ImageOperations> {
-    let contrast = value["imgp_contrast"].as_f64().unwrap_or(0.0) as f32;
-    let brightness = value["imgp_brightness"].as_i64().unwrap_or(0) as i32;
-    let hue = value["imgp_huerotate"].as_i64().unwrap_or(0) as i32;
-    let blur = value["imgp_blur"].as_f64().unwrap_or(0.0) as f32;
-    let invert = value["imgp_invert"].as_bool().unwrap_or(false);
-    let flip_h = value["imgp_flip_h"].as_bool().unwrap_or(false);
-    let flip_v = value["imgp_flip_v"].as_bool().unwrap_or(false);
+    let impg = value.get("impg")?;
+
+    let contrast = impg["contrast"].as_f64().unwrap_or(0.0) as f32;
+    let brightness = impg["brightness"].as_i64().unwrap_or(0) as i32;
+    let hue = impg["huerotate"].as_i64().unwrap_or(0) as i32;
+    let blur = impg["blur"].as_f64().unwrap_or(0.0) as f32;
+    let invert = impg["invert"].as_bool().unwrap_or(false);
+    let flip_h = impg["flip_h"].as_bool().unwrap_or(false);
+    let flip_v = impg["flip_v"].as_bool().unwrap_or(false);
 
     Some(ImageOperations::new(contrast, brightness, hue, blur, invert, flip_h, flip_v))
 }

@@ -25,28 +25,24 @@
     "~/.config/rpaper/rpaper_templates/swaync.template",
     "~/.config/rpaper/rpaper_templates/vesktop.template",
     "~/.config/rpaper/rpaper_templates/rofi-switcher.template"
-    ],
-  "vars_path": "~/.config/rpaper/color_variables.json",
+  ],
+  "impg": {
+    "contrast": -20,
+    "brightness": -25,
+    "huerotate": 0,
+    "blur": 15.0,
+    "invert": false,
+    "flip_h": false,
+    "flip_v": false
+  },
+  "rwal": {
+    "thumb_w": 210,
+    "thumb_h": 210,
+    "accent_color": 4,
+    "clamp_min": 160.0,
+    "clamp_max": 160.0
+  },
   "scheme_file": "~/.cache/rpaper/rwal/colors",
   "wall_command": "swaybg -o {display} -i {image}",
-  "resize_algorithm": "Lanczos3",
-
-  "cache_scheme": true,
-  "cache_walls": true,
-  "set_templates": true,
-  "set_walls": true,
-
-  "imgp_contrast": 0,
-  "imgp_brightness": 0,
-  "imgp_huerotate": 0,
-  "imgp_blur": 0.0,
-  "imgp_invert": false,
-  "imgp_flip_h": false,
-  "imgp_flip_v": false,
-
-  "rwal_thumb_w": 210,
-  "rwal_thumb_h": 210,
-  "rwal_accent_color": 4,
-  "rwal_clamp_min": 140.0,
-  "rwal_clamp_max": 170.0
+  "resize_algorithm": "Lanczos3"
 }
