@@ -12,12 +12,12 @@ const REQUIRED_KEYWORDS: [&str; 6] = ["IMAGE", "GET_DISPLAYS", "GET_TEMPLATES", 
 const RECEIVE_KEYWORDS: [&str; 5] = ["GET_DISPLAYS", "GET_TEMPLATES", "GET_IMAGE_OPS", "GET_RWAL_PARAMS", "GET_CONFIG"];
 
 fn send(message: String) -> std::io::Result<()> {
-    let mut stream = UnixStream::connect(SOCKET_PATH)?;
-    let mut reader = BufReader::new(stream.try_clone()?);
     let mut message = format!("{}\n", message);
 
     if RECEIVE_KEYWORDS.iter().any(|&keyword| message.contains(keyword)) {
         for &keyword in RECEIVE_KEYWORDS.iter() {
+            let mut stream = UnixStream::connect(SOCKET_PATH)?;
+            let mut reader = BufReader::new(stream.try_clone()?);
             if message.contains(keyword) {
                 stream.write_all(format!("{}\n", keyword).as_bytes())?;
                 let mut response = String::new();
@@ -28,7 +28,8 @@ fn send(message: String) -> std::io::Result<()> {
             }
         }
     }
-    
+    let mut stream = UnixStream::connect(SOCKET_PATH)?;
+    let mut reader = BufReader::new(stream.try_clone()?);
     stream.write_all(message.as_bytes())?;
     let mut response = String::new();
     reader.read_line(&mut response)?;
