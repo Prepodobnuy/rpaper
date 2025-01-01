@@ -224,12 +224,7 @@ impl JsonString for RwalParams {
 impl JsonString for Config {
     fn json(& self) -> String {
         format!(
-            "{{
-            \"displays\":{},
-            \"templates\":{},
-            \"impg\":{},
-            \"rwal\":{},
-            }}",
+            "{{\"displays\":{},\"templates\":{},\"impg\":{},\"rwal\":{}}}",
             {
                 if let Some(displays) = &self.displays {
                     displays.json()
