@@ -323,7 +323,7 @@ fn get_colors(input: Vec<String>) -> Option<Vec<Color>> {
                 change = if let Ok(c) = splitted[2].parse::<i32>() { c } else { 0 };
 
                 if let Ok(i) = splitted[3].parse::<i32>() {                    
-                    inversed = if i == 1 { false } else { true }
+                    inversed = i == 1
                 }
             },
             _ => {
