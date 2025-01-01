@@ -7,14 +7,29 @@ use std::str::FromStr;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
+
+const REQUIRED_KEYWORDS: [&str; 6] = ["IMAGE", "GET_DISPLAYS", "GET_TEMPLATES", "GET_IMAGE_OPS", "GET_RWAL_PARAMS", "GET_CONFIG"];
+const RECEIVE_KEYWORDS: [&str; 5] = ["GET_DISPLAYS", "GET_TEMPLATES", "GET_IMAGE_OPS", "GET_RWAL_PARAMS", "GET_CONFIG"];
+
 fn send(message: String) -> std::io::Result<()> {
     let mut stream = UnixStream::connect(SOCKET_PATH)?;
     let mut reader = BufReader::new(stream.try_clone()?);
     let message = format!("{}\n", message);
-    stream.write_all(message.as_bytes())?;
 
-    let mut response = String::new();
-    reader.read_line(&mut response)?;
+    if RECEIVE_KEYWORDS.iter().any(|&keyword| message.contains(keyword)) {
+        for &keyword in RECEIVE_KEYWORDS.iter() {
+            if message.contains(keyword) {
+                stream.write_all(format!("{}\n", keyword).as_bytes())?;
+                let mut response = String::new();
+                reader.read_line(&mut response)?;
+                println!("{}", response);
+            }
+        }
+    } else {
+        stream.write_all(message.as_bytes())?;
+        let mut response = String::new();
+        reader.read_line(&mut response)?;
+    }
 
     Ok(())
 }
@@ -72,7 +87,12 @@ fn replace_arguments(args: &Vec<String>) -> Result<String, String> {
         .replace("--thumb", "RWAL_THUMB")
         .replace("--clamp", "RWAL_CLAMP")
         .replace("--count", "RWAL_COUNT")
-        .replace("--accent", "RWAL_ACCENT");
+        .replace("--accent", "RWAL_ACCENT")
+        .replace("--get-displays", "GET_DISPLAYS")
+        .replace("--get-templates", "GET_TEMPLATES")
+        .replace("--get-image-ops", "GET_IMAGE_OPS")
+        .replace("--get-rwal-params", "GET_RWAL_PARAMS")
+        .replace("--get-config", "GET_CONFIG");
 
     if result.contains("W_SET") && result.contains("W_CACHE") {
         result = result.replace("W_CACHE    ", "");
@@ -82,7 +102,7 @@ fn replace_arguments(args: &Vec<String>) -> Result<String, String> {
         result = result.replace("C_CACHE    ", "");
         result = result.replace("    C_CACHE", "");
     }
-    if !result.contains("IMAGE") {
+    if !REQUIRED_KEYWORDS.iter().any(|&keyword| result.contains(keyword)) {
         return Err("Missing -I".to_string());
     }
     Ok(result)
@@ -237,6 +257,16 @@ r#"+----------------------+-----------------------------------------------------
 |                      |                                                       |                              |
 | --cache-all <dir>    | selects all images from dir and cache them            | loop of W_CACHE, C_CACHE     |
 |                      | (colors and wallpapers)                               | and IMAGE                    |
++----------------------+-------------------------------------------------------+------------------------------+
+| --get-displays       |                                                       | GET_DISPLAYS                 |
+|                      |                                                       |                              |
+| --get-templates      |                                                       | GET_TEMPLATES                |
+|                      |                                                       |                              |
+| --get-image-ops      |                                                       | GET_IMAGE_OPS                |
+|                      |                                                       |                              |
+| --get-rwal-params    |                                                       | GET_RWAL_PARAMS              |
+|                      |                                                       |                              |
+| --get-config         |                                                       | GET_CONFIG                   |
 +----------------------+-------------------------------------------------------+------------------------------+"#;
 
 // socket call examples

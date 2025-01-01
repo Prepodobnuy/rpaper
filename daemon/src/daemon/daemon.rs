@@ -1,7 +1,7 @@
-use std::sync::mpsc;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::os::unix::net::UnixListener;
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::time::Duration;
 use std::fs::{self, File};
 use std::path::Path;
@@ -11,9 +11,12 @@ use crate::{CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
 
+use super::config::JsonString;
+
 pub struct Daemon {
     config: Config,
     rx: mpsc::Receiver<MpscData>,
+    socket_tx: mpsc::Sender<MpscData>,
 }
 
 impl Daemon {
@@ -36,9 +39,9 @@ impl Daemon {
         // config watcher
         start_config_watcher(&expand_user(CONFIG_PATH), tx.clone());
         // socket_listener
-        start_socket_listener(SOCKET_PATH, tx.clone());
+        let socket_tx = start_socket_listener(SOCKET_PATH, tx.clone());
 
-        Daemon { config, rx }
+        Daemon { config, rx, socket_tx }
     }
 
     pub fn mainloop(&mut self) {
@@ -56,6 +59,30 @@ impl Daemon {
                         request.process();
                         std::mem::drop(request);
                     },
+                    MpscData::DisplaysRequest => {
+                        if let Some(displays) = &self.config.displays {
+                            let _ = self.socket_tx.send(MpscData::ListenerRespond(displays.json()));
+                        }
+                    },
+                    MpscData::TemplatesRequest => {
+                        if let Some(templates) = &self.config.templates {
+                            let _ = self.socket_tx.send(MpscData::ListenerRespond(templates.json()));
+                        }
+                    },
+                    MpscData::ImageOpsRequest => {
+                        if let Some(image_operations) = &self.config.image_operations {
+                            let _ = self.socket_tx.send(MpscData::ListenerRespond(image_operations.json()));
+                        }
+                    },
+                    MpscData::RwalParamsRequest => {
+                        if let Some(rwal_params) = &self.config.rwal_params {
+                            let _ = self.socket_tx.send(MpscData::ListenerRespond(rwal_params.json()));
+                        }
+                    },
+                    MpscData::ConfigRequest => {
+                        let _ = self.socket_tx.send(MpscData::ListenerRespond(self.config.json()));
+                    },
+                    _ => {},
                 }
             }
             thread::sleep(Duration::from_millis(10));
@@ -63,37 +90,74 @@ impl Daemon {
     }
 }
 
+#[derive(Clone)]
 pub enum MpscData {
     ConfigChanged(String),
     ErrorCreatingDirectory,
     SuccesCreatingDirectory,
     ListenerRequest(String),
+    ListenerRespond(String),
+    DisplaysRequest,
+    TemplatesRequest,
+    ImageOpsRequest,
+    RwalParamsRequest,
+    ConfigRequest,
 }
 
-fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) {
-    let listener;
+fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> mpsc::Sender<MpscData> {
+    let (listener_tx, listener_rx): (Sender<MpscData>, Receiver<MpscData>) = mpsc::channel();
+    let listener = UnixListener::bind(socket_path).unwrap_or_else(|_| panic!("Unable to create socket"));
 
-    match UnixListener::bind(socket_path) {
-        Ok(data) => {listener = data},
-        Err(_) => {panic!("Unable to create socket")},
-    }
-    
     thread::spawn(move || {
         for stream in listener.incoming() {
             match stream {
-                Ok(stream) => {
-                    let mut reader = BufReader::new(stream);
+                Ok(mut stream) => {
+                    let mut reader = BufReader::new(&stream);
                     let mut buffer = String::new();
 
                     reader.read_line(&mut buffer).unwrap();
+                    let request = buffer.trim().to_string();
 
-                    let _ = tx.send(MpscData::ListenerRequest(buffer.trim().to_string()));
+                    if let Some(response) = handle_request(&request, &tx, &listener_rx) {
+                        if let Err(e) = stream.write_all(format!("{}\n", response).as_bytes()) {
+                            eprintln!("Failed to write to socket: {}", e);
+                        }
+                    }
                 }
                 Err(e) => {
                     eprintln!("Error: {}", e);
                 }
             }
-    }});
+        }
+    });
+
+    listener_tx
+}
+
+fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Receiver<MpscData>) -> Option<String> {
+    let requests = [
+        ("GET_DISPLAYS", MpscData::DisplaysRequest),
+        ("GET_TEMPLATES", MpscData::TemplatesRequest),
+        ("GET_IMAGE_OPS", MpscData::ImageOpsRequest),
+        ("GET_RWAL_PARAMS", MpscData::RwalParamsRequest),
+        ("GET_CONFIG", MpscData::ConfigRequest),
+    ];
+
+    for (pattern, data) in &requests {
+        if request.contains(pattern) {
+            if tx.send(data.clone()).is_ok() {
+                if let Ok(value) = listener_rx.recv_timeout(Duration::from_millis(100)) {
+                    if let MpscData::ListenerRespond(value) = value {
+                        return Some(value);
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = tx.send(MpscData::ListenerRequest(request.to_string()));
+
+    None
 }
 
 fn start_directory_watcher(directories: &Vec<String>, tx: mpsc::Sender<MpscData>) {

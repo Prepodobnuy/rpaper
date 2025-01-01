@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::Read;
 
-use serde_json::value;
 use serde_json::Value;
 
 use crate::expand_user;
@@ -150,7 +149,7 @@ fn read_image_operations(value: &Value) -> Option<ImageOperations> {
     Some(ImageOperations::new(contrast, brightness, hue, blur, invert, flip_h, flip_v))
 }
 
-trait JsonString {
+pub trait JsonString {
     fn json(& self) -> String {
         String::new()
     }
@@ -182,7 +181,7 @@ impl JsonString for Vec<Display> {
 impl JsonString for Template {
     fn json(& self) -> String {
         format!(
-            "{{\"{}\"}}",
+            "\"{}\"",
             self.path
         )
     }
