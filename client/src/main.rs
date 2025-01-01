@@ -14,7 +14,7 @@ const RECEIVE_KEYWORDS: [&str; 5] = ["GET_DISPLAYS", "GET_TEMPLATES", "GET_IMAGE
 fn send(message: String) -> std::io::Result<()> {
     let mut stream = UnixStream::connect(SOCKET_PATH)?;
     let mut reader = BufReader::new(stream.try_clone()?);
-    let message = format!("{}\n", message);
+    let mut message = format!("{}\n", message);
 
     if RECEIVE_KEYWORDS.iter().any(|&keyword| message.contains(keyword)) {
         for &keyword in RECEIVE_KEYWORDS.iter() {
@@ -23,13 +23,15 @@ fn send(message: String) -> std::io::Result<()> {
                 let mut response = String::new();
                 reader.read_line(&mut response)?;
                 println!("{}", response);
+                message = message.replace(format!("    {}", keyword).as_str(), "")
+                    .replace(format!("{}    ", keyword).as_str(), "");
             }
         }
-    } else {
-        stream.write_all(message.as_bytes())?;
-        let mut response = String::new();
-        reader.read_line(&mut response)?;
     }
+    
+    stream.write_all(message.as_bytes())?;
+    let mut response = String::new();
+    reader.read_line(&mut response)?;
 
     Ok(())
 }
@@ -201,73 +203,144 @@ fn main() {
 
 const SOCKET_PATH: &str = "/tmp/rpaper-daemon";
 const HELP_MESSAGE: &str = 
-r#"+----------------------+-------------------------------------------------------+------------------------------+
-|                      |                                                       |                              |
-|       argument       |                      description                      |          socket call         |
-|                      |                                                       |                              |
-+----------------------+-------------------------------------------------------+------------------------------+
-| -S                   | set wallpaper,                                        | W_SET                        |
-|                      | would cache wallpaper if it is not cached             |                              |
-|                      |                                                       |                              |
-| -W                   | cache wallpaper                                       | W_CACHE                      |
-|                      |                                                       |                              |
-| -T                   | apply color_scheme, would cache colors                | C_SET                        |
-|                      | if they are not cached                                |                              |
-|                      |                                                       |                              |
-| -C                   | cache colors                                          | C_CACHE                      |
-|                      |                                                       |                              |
-| --set-command <value>| set different wallpaper set command                   | SET_COMMAND                  |
-+----------------------+-------------------------------------------------------+------------------------------+
-| --contrast <value>   | change image contrast                                 | CONFIG_CONTRAST <value>      |
-|                      |                                                       |                              |
-| --brightness <value> | change image brightness                               | CONFIG_BRIGHTNESS <value>    |
-|                      |                                                       |                              |
-| --hue <value>        | change image hue                                      | CONFIG_HUE <value>           |
-|                      |                                                       |                              |
-| --blur <value>       | change image blut                                     | CONFIG_BLUR <value>          |
-|                      |                                                       |                              |
-| --invert             | invert image                                          | CONFIG_INVERT                |
-|                      |                                                       |                              |
-| --fliph              | flip image horizontaly                                | CONFIG_FLIP_H                |
-|                      |                                                       |                              |
-| --flipv              | flip image verticaly                                  | CONFIG_FLIP_V                |
-|                      |                                                       |                              |
-| --displays <value>   | set displays wallpaper setted to params               | CONFIG_DISPLAYS <value>      |
-|                      | example: HDMI-A-1:1920:1080:0:0,DP-1:1080:1920:0:0    |                              |
-|                      |                                                       |                              |
-| --templates <value>  | set templates to be applied                           | CONFIG_TEMPLATES <value>     |
-|                      | example: path,anotherpath,anotherpath                 |                              |
-|                      |                                                       |                              |
-| --resize-alg <value> | use different resize algorithm for wallpaper cache    | CONFIG_RESIZE_ALG <value>    |
-+----------------------+-------------------------------------------------------+------------------------------+
-| --thumb <value>      | set the dimensions of the image thumb                 | RWAL_THUMB widthXheight      |
-|                      | from which the colors are taken                       |                              |
-|                      |                                                       |                              |
-| --clamp <value>      | set the clamp range to pallete colors                 | RWAL_CLAMP minXmax           |
-|                      |                                                       |                              |
-| --count <value>      | set the number of colors to be generated              | RWAL_COUNT colors_count      |
-|                      |                                                       |                              |
-| --accent <value>     | set the accent color id                               | RWAL_ACCENT accent_color_id  |
-+----------------------+-------------------------------------------------------+------------------------------+
-| -I <path/to/image>   | sends wallpaper to daemon                             | IMAGE <path/to/image>        |
-|                      |                                                       |                              |
-| --cache <dir>        | selects all images from dir and cache them            | loop of W_CACHE and IMAGE    |
-|                      |                                                       |                              |
-| --colors <dir>       | selects all images from dir and cache they colors     | loop of C_CACHE and IMAGE    |
-|                      |                                                       |                              |
-| --cache-all <dir>    | selects all images from dir and cache them            | loop of W_CACHE, C_CACHE     |
-|                      | (colors and wallpapers)                               | and IMAGE                    |
-+----------------------+-------------------------------------------------------+------------------------------+
-| --get-displays       |                                                       | GET_DISPLAYS                 |
-|                      |                                                       |                              |
-| --get-templates      |                                                       | GET_TEMPLATES                |
-|                      |                                                       |                              |
-| --get-image-ops      |                                                       | GET_IMAGE_OPS                |
-|                      |                                                       |                              |
-| --get-rwal-params    |                                                       | GET_RWAL_PARAMS              |
-|                      |                                                       |                              |
-| --get-config         |                                                       | GET_CONFIG                   |
-+----------------------+-------------------------------------------------------+------------------------------+"#;
+r#"+-----------------------------+-------------------------------------------------------+
+|                             |                                                       |
+|          argument           |                      description                      |
+|                             |                                                       |
++-----------------------------+-------------------------------------------------------+
+| -S                          | set wallpaper,                                        |
+|                             | would cache wallpaper if it is not cached             |
+|                             |                                                       |
+| -W                          | cache wallpaper                                       |
+|                             |                                                       |
+| -T                          | apply color_scheme, would cache colors                |
+|                             | if they are not cached                                |
+|                             |                                                       |
+| -C                          | cache colors                                          |
+|                             |                                                       |
+| --set-command <value>       | set different wallpaper set command                   |
++-----------------------------+-------------------------------------------------------+
+| --contrast <value>          | change image contrast                                 |
+|                             |                                                       |
+| --brightness <value>        | change image brightness                               |
+|                             |                                                       |
+| --hue <value>               | change image hue                                      |
+|                             |                                                       |
+| --blur <value>              | change image blut                                     |
+|                             |                                                       |
+| --invert                    | invert image                                          |
+|                             |                                                       |
+| --fliph                     | flip image horizontaly                                |
+|                             |                                                       |
+| --flipv                     | flip image verticaly                                  |
+|                             |                                                       |
+| --displays <value>          | set displays wallpaper setted to params               |
+|                             | example: HDMI-A-1:1920:1080:0:0,DP-1:1080:1920:0:0    |
+|                             |                                                       |
+| --templates <value>         | set templates to be applied                           |
+|                             | example: path,anotherpath,anotherpath                 |
+|                             |                                                       |
+| --resize-alg <value>        | use different resize algorithm for wallpaper cache    |
++-----------------------------+-------------------------------------------------------+
+| --thumb <value>             | set the dimensions of the image thumb                 |
+|                             | from which the colors are taken                       |
+|                             |                                                       |
+| --clamp <value>             | set the clamp range to pallete colors                 |
+|                             |                                                       |
+| --count <value>             | set the number of colors to be generated              |
+|                             |                                                       |
+| --accent <value>            | set the accent color id                               |
++-----------------------------+-------------------------------------------------------+
+| -I <path/to/image>          | sends wallpaper to daemon                             |
+|                             |                                                       |
+| --cache <dir>               | selects all images from dir and cache them            |
+|                             |                                                       |
+| --colors <dir>              | selects all images from dir and cache they colors     |
+|                             |                                                       |
+| --cache-all <dir>           | selects all images from dir and cache them            |
+|                             | (colors and wallpapers)                               |
++-----------------------------+-------------------------------------------------------+
+| --get-displays              | get loaded displays in json format                    |
+|                             |                                                       |
+| --get-templates             | get loaded templates in json format                   |
+|                             |                                                       |
+| --get-image-ops             | get loaded image operations in json format            |
+|                             |                                                       |
+| --get-rwal-params           | get loaded rwal params in json format                 |
+|                             |                                                       |
+| --get-config                | get loaded config in json format                      |
+|                             |                                                       |
+| --is-cached <path/to/image> | get cached images paths                               |
++-----------------------------+-------------------------------------------------------+"#;
 
-// socket call examples
-// W_SET C_SET IMAGE <path/to/image> // set wallpapers and apply templats of image
+// Socket calls
+// +------------------------------+-------------------------------------------------------+
+// |                              |                                                       |
+// |          socket call         |                      description                      |
+// |                              |                                                       |
+// +------------------------------+-------------------------------------------------------+
+// | W_SET                        | set wallpaper,                                        |
+// |                              | would cache wallpaper if it is not cached             |
+// |                              |                                                       |
+// | W_CACHE                      | cache wallpaper                                       |
+// |                              |                                                       |
+// | C_SET                        | apply color_scheme, would cache colors                |
+// |                              | if they are not cached                                |
+// |                              |                                                       |
+// | C_CACHE                      | cache colors                                          |
+// |                              |                                                       |
+// | SET_COMMAND                  | set different wallpaper set command                   |
+// +------------------------------+-------------------------------------------------------+
+// | CONFIG_CONTRAST <value>      | change image contrast                                 |
+// |                              |                                                       |
+// | CONFIG_BRIGHTNESS <value>    | change image brightness                               |
+// |                              |                                                       |
+// | CONFIG_HUE <value>           | change image hue                                      |
+// |                              |                                                       |
+// | CONFIG_BLUR <value>          | change image blut                                     |
+// |                              |                                                       |
+// | CONFIG_INVERT                | invert image                                          |
+// |                              |                                                       |
+// | CONFIG_FLIP_H                | flip image horizontaly                                |
+// |                              |                                                       |
+// | CONFIG_FLIP_V                | flip image verticaly                                  |
+// |                              |                                                       |
+// | CONFIG_DISPLAYS <value>      | set displays wallpaper setted to params               |
+// |                              | example: HDMI-A-1:1920:1080:0:0,DP-1:1080:1920:0:0    |
+// |                              |                                                       |
+// | CONFIG_TEMPLATES <value>     | set templates to be applied                           |
+// |                              | example: path,anotherpath,anotherpath                 |
+// |                              |                                                       |
+// | CONFIG_RESIZE_ALG <value>    | use different resize algorithm for wallpaper cache    |
+// +------------------------------+-------------------------------------------------------+
+// | RWAL_THUMB widthXheight      | set the dimensions of the image thumb                 |
+// |                              | from which the colors are taken                       |
+// |                              |                                                       |
+// | RWAL_CLAMP minXmax           | set the clamp range to pallete colors                 |
+// |                              |                                                       |
+// | RWAL_COUNT colors_count      | set the number of colors to be generated              |
+// |                              |                                                       |
+// | RWAL_ACCENT accent_color_id  | set the accent color id                               |
+// +------------------------------+-------------------------------------------------------+
+// | IMAGE <path/to/image>        | sends wallpaper to daemon                             |
+// |                              |                                                       |
+// | loop of W_CACHE and IMAGE    | selects all images from dir and cache them            |
+// |                              |                                                       |
+// | loop of C_CACHE and IMAGE    | selects all images from dir and cache they colors     |
+// |                              |                                                       |
+// | loop of W_CACHE, C_CACHE     | selects all images from dir and cache them            |
+// | and IMAGE                    | (colors and wallpapers)                               |
+// +------------------------------+-------------------------------------------------------+
+// | GET_DISPLAYS                 | get loaded displays in json format                    |
+// |                              |                                                       |
+// | GET_TEMPLATES                | get loaded templates in json format                   |
+// |                              |                                                       |
+// | GET_IMAGE_OPS                | get loaded image operations in json format            |
+// |                              |                                                       |
+// | GET_RWAL_PARAMS              | get loaded rwal params in json format                 |
+// |                              |                                                       |
+// | GET_CONFIG                   | get loaded config in json format                      |
+// |                              |                                                       |
+// | IS_CACHED <path/to/image>    | get cached images paths                               |
+// +------------------------------+-------------------------------------------------------+
+// Each socket call and value must be splitted by four spaces "    "
