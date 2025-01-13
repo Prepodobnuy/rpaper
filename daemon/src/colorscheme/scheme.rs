@@ -1,6 +1,6 @@
 use std::{path::Path, thread};
 
-use crate::{daemon::config::Config, encode_string, expand_user, get_image_name, wallpaper::display::ImageOperations, COLORS_DIR};
+use crate::{daemon::config::Config, encode_string, expand_user, get_image_name, logger::logger::log, wallpaper::display::ImageOperations, COLORS_DIR};
 
 use super::rwal::{cache_rwal, run_rwal, RwalParams};
 
@@ -12,11 +12,15 @@ pub fn set_scheme(config: &Config, image_path: &str) {
             if !Path::new(&cache_path).exists() {
                 cache_scheme(config, image_path);
             }
-            
+
+            log("Applying colorscheme...");
+
             let colors = run_rwal(image_path, &cache_path, rwal_params, image_ops);
 
             if let Some(templates) = &config.templates {
                 let mut handlers = Vec::new();
+
+                log("Applying templates...");
 
                 for template in templates {
                     let template = template.clone();
@@ -38,6 +42,7 @@ pub fn set_scheme(config: &Config, image_path: &str) {
 pub fn cache_scheme(config: &Config, image_path: &str) {
     if let Some(image_ops) = &config.image_operations {
         if let Some(rwal_params) = &config.rwal_params {
+            log("Caching colorscheme...");
             cache_rwal(
                 image_path,
                 &get_cache_path(image_ops, rwal_params, image_path),

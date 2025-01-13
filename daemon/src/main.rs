@@ -1,6 +1,7 @@
 mod colorscheme;
 mod daemon;
 mod wallpaper;
+mod logger;
 
 use std::path::{PathBuf, Path};
 use std::env;
@@ -17,6 +18,7 @@ const CACHE_DIR: &str = "~/.cache/rpaper";
 const COLORS_DIR: &str = "~/.cache/rpaper/rwal";
 const COLORS_PATH: &str = "~/.cache/rpaper/rwal/colors";
 const WALLPAPERS_DIR: &str = "~/.cache/rpaper/wallpapers";
+
 //const DAEMON_NAME: &str = "rpaper-daemon";
 
 pub fn expand_user(path: &str) -> String {

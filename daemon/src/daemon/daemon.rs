@@ -7,6 +7,7 @@ use std::fs::{self, File};
 use std::path::Path;
 use sha2::{Sha256, Digest};
 
+use crate::logger::logger::{err, info, log};
 use crate::{CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
@@ -50,36 +51,42 @@ impl Daemon {
                 match received_data {
                     MpscData::ConfigChanged(value) => {
                         self.config.read_from_string(value);
-                        println!("CONFIG CHANGED");
+                        info("Config changed.");
                     },
-                    MpscData::ErrorCreatingDirectory => { println!("ERROR CREATING DIRECTORY"); },
-                    MpscData::SuccesCreatingDirectory => { println!("DIRECTORY CREATED"); },
+                    MpscData::ErrorCreatingDirectory => { err("Unable to create needed directory."); },
+                    MpscData::SuccesCreatingDirectory => { info("Needed directory created."); },
                     MpscData::ListenerRequest(message) => {
+                        log("Received wallpaper request.");
                         let mut request = Request::new(self.config.clone(), message);
                         request.process();
                         std::mem::drop(request);
                     },
                     MpscData::DisplaysRequest => {
+                        log("Received display request.");
                         if let Some(displays) = &self.config.displays {
                             let _ = self.socket_tx.send(MpscData::ListenerRespond(displays.json()));
                         }
                     },
                     MpscData::TemplatesRequest => {
+                        log("Received template request.");
                         if let Some(templates) = &self.config.templates {
                             let _ = self.socket_tx.send(MpscData::ListenerRespond(templates.json()));
                         }
                     },
                     MpscData::ImageOpsRequest => {
+                        log("Received imageops request.");
                         if let Some(image_operations) = &self.config.image_operations {
                             let _ = self.socket_tx.send(MpscData::ListenerRespond(image_operations.json()));
                         }
                     },
                     MpscData::RwalParamsRequest => {
+                        log("Received rwal params request.");
                         if let Some(rwal_params) = &self.config.rwal_params {
                             let _ = self.socket_tx.send(MpscData::ListenerRespond(rwal_params.json()));
                         }
                     },
                     MpscData::ConfigRequest => {
+                        log("Received config request.");
                         let _ = self.socket_tx.send(MpscData::ListenerRespond(self.config.json()));
                     },
                     _ => {},

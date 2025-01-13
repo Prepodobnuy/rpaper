@@ -1,7 +1,9 @@
 use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::colorscheme::rwal::RwalParams;
 use crate::colorscheme::scheme::{cache_scheme, set_scheme};
+use crate::logger::logger::log;
 use crate::wallpaper::display::{cache_wallpaper, set_wallpaper, Display, ImageOperations};
 use crate::colorscheme::template::Template;
 
@@ -13,6 +15,15 @@ pub struct Request {
     message: String,
 }
 
+fn unix_timestamp() -> u128 {
+    let start = SystemTime::now();
+
+    match start.duration_since(UNIX_EPOCH) {
+        Ok(n) => n.as_millis(),
+        Err(_) => 0,
+    }
+}
+
 impl Request {
     pub fn new(config: Config, message: String) -> Self {
         Request {
@@ -21,6 +32,7 @@ impl Request {
         }
     }
     pub fn process(&mut self) {
+        let current_timestamp = unix_timestamp();
         let messages: Vec<String> = self.message.split(";")
             .map(|s| s.to_string())
             .collect();
@@ -171,7 +183,8 @@ impl Request {
                 handler.join().unwrap();
             }
         }
-
+        
+        log(&format!("Request processed in {}ms.", unix_timestamp() - current_timestamp));
     }
 }
 

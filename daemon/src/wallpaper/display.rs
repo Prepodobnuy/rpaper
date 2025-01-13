@@ -5,6 +5,7 @@ use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
 use image::{self, DynamicImage};
 
 use crate::daemon::config::Config;
+use crate::logger::logger::log;
 use crate::{encode_string, expand_user, get_image_name, spawn, WALLPAPERS_DIR};
 
 #[derive(Clone)]
@@ -265,6 +266,7 @@ pub fn cache_wallpaper(config: &Config, image_path: &str) {
     if let Some(displays) = &config.displays {
         if let Some(image_ops) = &config.image_operations {
             if let Some(image_resize_algorithm) = &config.resize_algorithm {
+                log("Caching wallpaper...");
                 let cache_paths = get_cached_image_paths(
                     &get_cached_image_names(displays, image_ops, image_path), 
                     WALLPAPERS_DIR
@@ -316,6 +318,8 @@ pub fn set_wallpaper(config: &Config, image_path: &str) {
                         break;
                     }
                 }
+
+                log("Setting wallpaper...");
             
                 for (i, cache_path) in cache_paths.into_iter().enumerate() {
                     let command = parse_set_command(set_command, &cache_path, image_path, &displays[i].name);
