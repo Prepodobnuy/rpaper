@@ -1,3 +1,4 @@
+use core::time;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::os::unix::net::UnixListener;
@@ -8,7 +9,7 @@ use std::path::Path;
 use sha2::{Sha256, Digest};
 
 use crate::logger::logger::{err, info, log};
-use crate::{CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
+use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
 
@@ -22,6 +23,7 @@ pub struct Daemon {
 
 impl Daemon {
     pub fn new() -> Self {
+        let timestamp = unix_timestamp();
         let (tx, rx) = mpsc::channel();
 
         // config init
@@ -42,10 +44,12 @@ impl Daemon {
         // socket_listener
         let socket_tx = start_socket_listener(SOCKET_PATH, tx.clone());
 
+        info(&format!("Daemon initialized in {}ms.", unix_timestamp() - timestamp));
         Daemon { config, rx, socket_tx }
     }
 
     pub fn mainloop(&mut self) {
+        info("Daemon started.");
         loop {
             if let Ok(received_data) = self.rx.try_recv() {
                 match received_data {

@@ -1,9 +1,9 @@
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::colorscheme::rwal::RwalParams;
 use crate::colorscheme::scheme::{cache_scheme, set_scheme};
 use crate::logger::logger::log;
+use crate::unix_timestamp;
 use crate::wallpaper::display::{cache_wallpaper, set_wallpaper, Display, ImageOperations};
 use crate::colorscheme::template::Template;
 
@@ -15,14 +15,7 @@ pub struct Request {
     message: String,
 }
 
-fn unix_timestamp() -> u128 {
-    let start = SystemTime::now();
 
-    match start.duration_since(UNIX_EPOCH) {
-        Ok(n) => n.as_millis(),
-        Err(_) => 0,
-    }
-}
 
 impl Request {
     pub fn new(config: Config, message: String) -> Self {

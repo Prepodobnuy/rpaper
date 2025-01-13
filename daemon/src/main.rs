@@ -6,7 +6,9 @@ mod logger;
 use std::path::{PathBuf, Path};
 use std::env;
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use logger::logger::log;
 use sha2::{Sha256, Digest};
 
 use crate::daemon::daemon::Daemon;
@@ -20,6 +22,15 @@ const COLORS_PATH: &str = "~/.cache/rpaper/rwal/colors";
 const WALLPAPERS_DIR: &str = "~/.cache/rpaper/wallpapers";
 
 //const DAEMON_NAME: &str = "rpaper-daemon";
+
+pub fn unix_timestamp() -> u128 {
+    let start = SystemTime::now();
+
+    match start.duration_since(UNIX_EPOCH) {
+        Ok(n) => n.as_millis(),
+        Err(_) => 0,
+    }
+}
 
 pub fn expand_user(path: &str) -> String {
     if &path[0..1] != "~" {
