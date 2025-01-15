@@ -132,6 +132,7 @@ fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> mpsc:
 fn process_info_request (config: Config, request: InfoRequest) -> Option<String> {
     match request {
         InfoRequest::DisplaysRequest => {
+            log("Displays request received.");
             if let Some(displays) = config.displays {
                 Some(displays.json())
             } else {
@@ -139,6 +140,7 @@ fn process_info_request (config: Config, request: InfoRequest) -> Option<String>
             }
         },
         InfoRequest::TemplatesRequest => {
+            log("Templates request received.");
             if let Some(templates) = config.templates {
                 Some(templates.json())
             } else {
@@ -146,6 +148,7 @@ fn process_info_request (config: Config, request: InfoRequest) -> Option<String>
             }
         },
         InfoRequest::ImageOpsRequest => {
+            log("Image operations request received.");
             if let Some(image_ops) = config.image_operations {
                 Some(image_ops.json())
             } else {
@@ -153,14 +156,19 @@ fn process_info_request (config: Config, request: InfoRequest) -> Option<String>
             }
         },
         InfoRequest::RwalParamsRequest => {
+            log("Rwal params request received.");
             if let Some(rwal_params) = config.rwal_params {
                 Some(rwal_params.json())
             } else {
                 None
             }
         },
-        InfoRequest::ConfigRequest => {Some(config.json())},
+        InfoRequest::ConfigRequest => {
+            log("Config request received.");
+            Some(config.json())
+        },
         InfoRequest::CacheRequest(val) => {
+            log("Image cache info request received.");
             if let Some(img_ops) = config.image_operations {
                 if let Some(displays) = config.displays {
                     let cached_image_paths = get_cached_image_paths(
