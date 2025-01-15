@@ -1,4 +1,3 @@
-use core::time;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::thread;
 use std::os::unix::net::UnixListener;
@@ -9,6 +8,7 @@ use std::path::Path;
 use sha2::{Sha256, Digest};
 
 use crate::logger::logger::{err, info, log};
+use crate::wallpaper::display::{get_cached_image_names, get_cached_image_paths};
 use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
@@ -65,33 +65,10 @@ impl Daemon {
                         request.process();
                         std::mem::drop(request);
                     },
-                    MpscData::DisplaysRequest => {
-                        log("Received display request.");
-                        if let Some(displays) = &self.config.displays {
-                            let _ = self.socket_tx.send(MpscData::ListenerRespond(displays.json()));
+                    MpscData::InfoRequest(val) => {
+                        if let Some(respond) = process_info_request(self.config.clone(), val) {
+                            let _ = self.socket_tx.send(MpscData::ListenerRespond(respond));
                         }
-                    },
-                    MpscData::TemplatesRequest => {
-                        log("Received template request.");
-                        if let Some(templates) = &self.config.templates {
-                            let _ = self.socket_tx.send(MpscData::ListenerRespond(templates.json()));
-                        }
-                    },
-                    MpscData::ImageOpsRequest => {
-                        log("Received imageops request.");
-                        if let Some(image_operations) = &self.config.image_operations {
-                            let _ = self.socket_tx.send(MpscData::ListenerRespond(image_operations.json()));
-                        }
-                    },
-                    MpscData::RwalParamsRequest => {
-                        log("Received rwal params request.");
-                        if let Some(rwal_params) = &self.config.rwal_params {
-                            let _ = self.socket_tx.send(MpscData::ListenerRespond(rwal_params.json()));
-                        }
-                    },
-                    MpscData::ConfigRequest => {
-                        log("Received config request.");
-                        let _ = self.socket_tx.send(MpscData::ListenerRespond(self.config.json()));
                     },
                     _ => {},
                 }
@@ -108,11 +85,18 @@ pub enum MpscData {
     SuccesCreatingDirectory,
     ListenerRequest(String),
     ListenerRespond(String),
+    InfoRequest(InfoRequest),
+}
+
+#[derive(Clone)]
+pub enum InfoRequest {
     DisplaysRequest,
     TemplatesRequest,
     ImageOpsRequest,
     RwalParamsRequest,
     ConfigRequest,
+    CacheRequest(String),
+    EmptyRequest,
 }
 
 fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> mpsc::Sender<MpscData> {
@@ -131,12 +115,12 @@ fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> mpsc:
 
                     if let Some(response) = handle_request(&request, &tx, &listener_rx) {
                         if let Err(e) = stream.write_all(format!("{}\n", response).as_bytes()) {
-                            eprintln!("Failed to write to socket: {}", e);
+                            err(&format!("Failed to write to socket: {}", e));
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Error: {}", e);
+                    err(&format!("Error: {}", e));
                 }
             }
         }
@@ -145,18 +129,115 @@ fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> mpsc:
     listener_tx
 }
 
+fn process_info_request (config: Config, request: InfoRequest) -> Option<String> {
+    match request {
+        InfoRequest::DisplaysRequest => {
+            if let Some(displays) = config.displays {
+                Some(displays.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::TemplatesRequest => {
+            if let Some(templates) = config.templates {
+                Some(templates.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::ImageOpsRequest => {
+            if let Some(image_ops) = config.image_operations {
+                Some(image_ops.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::RwalParamsRequest => {
+            if let Some(rwal_params) = config.rwal_params {
+                Some(rwal_params.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::ConfigRequest => {Some(config.json())},
+        InfoRequest::CacheRequest(val) => {
+            if let Some(img_ops) = config.image_operations {
+                if let Some(displays) = config.displays {
+                    let cached_image_paths = get_cached_image_paths(
+                        &get_cached_image_names(&displays, &img_ops, &val),
+                        WALLPAPERS_DIR,
+                    );
+                    let mut cached = true;
+                    
+                    for cache_path in &cached_image_paths {
+                        if !Path::new(&expand_user(cache_path)).exists() {
+                            cached = false;
+                            break;
+                        }
+                    }
+
+                    Some(
+                        format!(
+                            "{{\"paths\":[{}],\"cached\":{}}}",
+                            cached_image_paths.into_iter().map(|path| {
+                                format!("\"{}\"", path)
+                            }).collect::<Vec<String>>().join(","),
+                            cached.to_string(),
+                        )
+                    )
+
+                }
+                else {None}
+            }
+            else {None}
+        },
+        _ => {None}
+    }
+}
+
 fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Receiver<MpscData>) -> Option<String> {
-    let requests = [
-        ("GET_DISPLAYS", MpscData::DisplaysRequest),
-        ("GET_TEMPLATES", MpscData::TemplatesRequest),
-        ("GET_IMAGE_OPS", MpscData::ImageOpsRequest),
-        ("GET_RWAL_PARAMS", MpscData::RwalParamsRequest),
-        ("GET_CONFIG", MpscData::ConfigRequest),
+    let info_patterns = [
+        "GET_DISPLAYS",
+        "GET_TEMPLATES",
+        "GET_IMAGE_OPS",
+        "GET_RWAL_PARAMS",
+        "GET_CONFIG",
+        "GET_CACHE",
     ];
 
-    for (pattern, data) in &requests {
-        if request.contains(pattern) {
-            if tx.send(data.clone()).is_ok() {
+    for pat in info_patterns {
+        if request.contains(pat) {
+            let request = match pat {
+                "GET_DISPLAYS"    => {MpscData::InfoRequest(InfoRequest::DisplaysRequest)},
+                "GET_TEMPLATES"   => {MpscData::InfoRequest(InfoRequest::TemplatesRequest)},
+                "GET_IMAGE_OPS"   => {MpscData::InfoRequest(InfoRequest::ImageOpsRequest)},
+                "GET_RWAL_PARAMS" => {MpscData::InfoRequest(InfoRequest::RwalParamsRequest)},
+                "GET_CONFIG"      => {MpscData::InfoRequest(InfoRequest::ConfigRequest)},
+                "GET_CACHE"       => {
+                    match request.contains("IMAGE") {
+                        true => {
+                            let parts: Vec<&str> = request.split_whitespace().collect();
+                            let image_index = parts.iter().position(|&s| s == "IMAGE");
+
+                            match image_index {
+                                Some(index) => {
+                                    if index + 1 < parts.len() {
+                                        MpscData::InfoRequest(InfoRequest::CacheRequest(parts[index + 1].to_string()))
+                                    } else {
+                                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
+                                    }
+                                },
+                                None => {
+                                    MpscData::InfoRequest(InfoRequest::EmptyRequest)
+                                }
+                            }
+                        },
+                        false => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
+                    }
+                },
+                _ => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
+            };
+            if tx.send(request.clone()).is_ok() {
                 if let Ok(value) = listener_rx.recv_timeout(Duration::from_millis(100)) {
                     if let MpscData::ListenerRespond(value) = value {
                         return Some(value);

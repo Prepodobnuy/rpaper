@@ -213,7 +213,7 @@ fn get_file_extension(file_name: &str) -> &str {
     ""
 }
 
-fn get_cached_image_names(displays: &Vec<Display>, image_ops: &ImageOperations, image_path: &str) -> Vec<String> {
+pub fn get_cached_image_names(displays: &Vec<Display>, image_ops: &ImageOperations, image_path: &str) -> Vec<String> {
     let image_name = get_image_name(image_path);
     let image_extension = get_file_extension(&image_name);
     let mut cached_images: Vec<String> = Vec::new();
@@ -246,7 +246,7 @@ fn get_cached_image_names(displays: &Vec<Display>, image_ops: &ImageOperations, 
     cached_images
 }
 
-fn get_cached_image_paths(cache_images: &Vec<String>, cache_path: &str) -> Vec<String> {
+pub fn get_cached_image_paths(cache_images: &Vec<String>, cache_path: &str) -> Vec<String> {
     let mut cache_paths: Vec<String> = Vec::new();
 
     for cache_image in cache_images {

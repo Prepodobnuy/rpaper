@@ -8,7 +8,6 @@ use std::env;
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use logger::logger::log;
 use sha2::{Sha256, Digest};
 
 use crate::daemon::daemon::Daemon;

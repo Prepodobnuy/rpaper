@@ -49,7 +49,7 @@ fn get_thumbed_image(image_path: &str, image_ops: &ImageOperations, w: u32, h: u
         _image = _image.huerotate(image_ops.hue)
     }
     if image_ops.blur != 0.0 {
-        _image = _image.blur(image_ops.blur) // sigma
+        _image = _image.blur(image_ops.blur)
     }
     if image_ops.flip_h {
         _image = _image.fliph()
