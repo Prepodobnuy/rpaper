@@ -50,7 +50,7 @@ impl Daemon {
 
     pub fn mainloop(&mut self) {
         info("Daemon started.");
-        loop {
+        while Path::new(SOCKET_PATH).exists() {
             if let Ok(received_data) = self.rx.try_recv() {
                 match received_data {
                     MpscData::ConfigChanged(value) => {
@@ -263,7 +263,7 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
 fn start_directory_watcher(directories: &Vec<String>, tx: mpsc::Sender<MpscData>) {
     let directories = directories.clone();
     let _ = thread::Builder::new().name("directory watcher thread".to_string()).spawn(move || {
-        loop {
+        while Path::new(SOCKET_PATH).exists() {
             for dir in directories.iter() {
                 let path = Path::new(&dir);
                 if !path.exists() {
@@ -277,7 +277,7 @@ fn start_directory_watcher(directories: &Vec<String>, tx: mpsc::Sender<MpscData>
                     }
                 }
             }            
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(100));
         }
     });
 }
@@ -287,14 +287,14 @@ fn start_config_watcher(config_path: &str, tx: mpsc::Sender<MpscData>) {
     let _ = thread::Builder::new().name("config watcher thread".to_string()).spawn(move || {
         if let Ok(file_caption) = read_file(&config_path) {
             let mut hash = file_caption.hash;
-            loop {
+            while Path::new(SOCKET_PATH).exists() {
                 if let Ok(file_caption) = read_file(&config_path) {
                     if file_caption.hash != hash {
                         hash = file_caption.hash;
                         let _ = tx.send(MpscData::ConfigChanged(file_caption.caption));
                     }
                 }
-                thread::sleep(Duration::from_millis(1000));
+                thread::sleep(Duration::from_millis(100));
             }
         }
         panic!("CANNOT FIND CONFIG FILE AT {}", config_path)

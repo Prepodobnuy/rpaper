@@ -4,10 +4,11 @@ mod wallpaper;
 mod logger;
 
 use std::path::{PathBuf, Path};
-use std::env;
+use std::{env, fs, thread};
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use logger::logger::info;
 use sha2::{Sha256, Digest};
 
 use crate::daemon::daemon::Daemon;
@@ -83,13 +84,14 @@ pub fn spawn(command: &str) {
         .expect("Failed to spawn command");
 }
 
-fn main() {
-    //system("killall rpaper-daemon");
-
+fn main() {    
     if Path::new(SOCKET_PATH).exists() {
         let _ = std::fs::remove_file(SOCKET_PATH);
+        thread::sleep(Duration::from_millis(20));
     }
     
     let mut daemon = Daemon::new();
     daemon.mainloop();
+
+    info("Exiting...");
 }
