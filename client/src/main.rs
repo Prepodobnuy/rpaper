@@ -8,41 +8,344 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 
 
-const REQUIRED_KEYWORDS: [&str; 6] = ["IMAGE", "GET_DISPLAYS", "GET_TEMPLATES", "GET_IMAGE_OPS", "GET_RWAL_PARAMS", "GET_CONFIG"];
-const RECEIVE_KEYWORDS: [&str; 5] = ["GET_DISPLAYS", "GET_TEMPLATES", "GET_IMAGE_OPS", "GET_RWAL_PARAMS", "GET_CONFIG"];
+fn main() {
+    if !Path::new(SOCKET_PATH).exists() {
+        eprintln!("Daemon is not found. Is it running?");
+        return;
+    }
 
-fn send(message: String) -> std::io::Result<()> {
-    let mut message = format!("{}\n", message);
+    if std::env::args().collect::<Vec<String>>().contains(&"--help".to_string()) {
+        println!("{HELP_MESSAGE}");
+        return;
+    }
 
-    if RECEIVE_KEYWORDS.iter().any(|&keyword| message.contains(keyword)) {
-        for &keyword in RECEIVE_KEYWORDS.iter() {
-            let mut stream = UnixStream::connect(SOCKET_PATH)?;
-            let mut reader = BufReader::new(stream.try_clone()?);
-            if message.contains(keyword) {
-                stream.write_all(format!("{}\n", keyword).as_bytes())?;
-                let mut response = String::new();
-                reader.read_line(&mut response)?;
-                println!("{}", response);
-                message = message.replace(format!("    {}", keyword).as_str(), "")
-                    .replace(format!("{}    ", keyword).as_str(), "");
-            }
+    let mut req = Request::new(
+        std::env::args().skip(1).collect()
+    );
+
+    req.process();
+}
+
+struct Request {
+    w_set: bool,
+    w_cache: bool,
+    c_set: bool,
+    c_cache: bool,
+    cache: bool,
+    image: Option<String>,
+    set_command: Option<String>,
+    config_contrast: Option<i32>,
+    config_brightness: Option<f32>,
+    config_hue: Option<i32>,
+    config_blur: Option<f32>,
+    config_invert: bool,
+    config_flip_h: bool,
+    config_flip_v: bool,
+    config_displays: Option<Vec<Display>>,
+    config_templates: Option<Vec<String>>,
+    config_resize_alg: Option<String>,
+    rwal_thumb: Option<String>,
+    rwal_clamp: Option<String>,
+    rwal_accent: Option<u32>,
+    get_displays: bool,
+    get_templates: bool,
+    get_image_ops: bool,
+    get_rwal_params: bool,
+    get_config: bool,
+    get_cache: bool,
+}
+
+struct Display {
+    name: String,
+    w: u32,
+    h: u32,
+    x: u32,
+    y: u32,
+}
+
+impl Request {
+    fn new(input: Vec<String>) -> Self {
+        // booleans
+        let w_set = input.contains(&"-S".to_string());
+        let w_cache = input.contains(&"-W".to_string()) && !w_set;
+        let c_set = input.contains(&"-T".to_string());
+        let c_cache = input.contains(&"-C".to_string()) && !c_set;
+        let cache = input.contains(&"--cache".to_string());
+
+        let config_invert = input.contains(&"--invert".to_string());
+        let config_flip_h = input.contains(&"--fliph".to_string());
+        let config_flip_v = input.contains(&"--flipv".to_string());
+
+        let get_displays = input.contains(&"--get-displays".to_string());
+        let get_templates = input.contains(&"--get-templates".to_string());
+        let get_image_ops = input.contains(&"--get-image-ops".to_string());
+        let get_rwal_params = input.contains(&"--get-rwal-params".to_string());
+        let get_config = input.contains(&"--get-config".to_string());
+        let get_cache = input.contains(&"--get-cache".to_string());
+        
+        // strings
+        let image = get_value::<String>(&input, "-I");
+        let set_command = get_value::<String>(&input, "--set-command");
+        let config_resize_alg = get_value::<String>(&input, "--resize-alg");
+        let rwal_thumb = get_value::<String>(&input, "--thumb");
+        let rwal_clamp = get_value::<String>(&input, "--clamp");
+
+        // nums
+        let config_contrast = get_value::<i32>(&input, "--contrast");
+        let config_brightness = get_value::<f32>(&input, "--brightness");
+        let config_hue = get_value::<i32>(&input, "--hue");
+        let config_blur = get_value::<f32>(&input, "--blur");
+        let rwal_accent = get_value::<u32>(&input, "--accent");
+
+        // arrays
+        let config_displays = get_displays_value(&input, "--displays");
+        let config_templates = get_templates_value(&input, "--templates");
+
+        Self {
+            w_set,
+            w_cache,
+            c_set,
+            c_cache,
+            cache,
+            image,
+            set_command,
+            config_contrast,
+            config_brightness,
+            config_hue,
+            config_blur,
+            config_invert,
+            config_flip_h,
+            config_flip_v,
+            config_displays,
+            config_templates,
+            config_resize_alg,
+            rwal_thumb,
+            rwal_clamp,
+            rwal_accent,
+            get_displays,
+            get_templates,
+            get_image_ops,
+            get_rwal_params,
+            get_config,
+            get_cache,
         }
     }
+
+    fn process(&mut self) {
+        if self.get_displays {
+            let _ = send("GET_DISPLAYS");
+        }
+        if self.get_templates {
+            let _ = send("GET_TEMPLATES");
+        }
+        if self.get_image_ops {
+            let _ = send("GET_IMAGE_OPS");
+        }
+        if self.get_rwal_params {
+            let _ = send("GET_RWAL_PARAMS");
+        }
+        if self.get_config {
+            let _ = send("GET_CONFIG");
+        }
+
+        if let Some(image) = &self.image {
+            if !is_dir(&get_absolute_path(image.to_string())) {
+                let image_request = self.pack_image_request(&get_absolute_path(image.to_string()));
+                let _ = send(&image_request);
+                return;
+            }
+            
+            let images = get_images_from_dir(&get_absolute_path(image.to_string()));
+            
+            if !self.cache {
+                let image_request = self.pack_image_request(&select_random(images));
+                let _ = send(&image_request);
+                return;
+            }
+
+            let image_request = images.into_iter().map(|image_path| {
+                self.pack_image_request(&image_path)
+            }).collect::<Vec<String>>().join(";");
+            let _ = send(&image_request);
+        }
+    }
+
+    fn pack_image_request(& self, image_path: &str) -> String {
+        let mut tags: Vec<String> = Vec::new();
+        tags.push("IMAGE".to_string());
+        tags.push(image_path.to_string());
+        if self.get_cache {
+            tags.push("GET_CACHE".to_string());
+        }
+        if self.w_set {
+            tags.push("W_SET".to_string());
+        }
+        if self.w_cache {
+            tags.push("W_CACHE".to_string());
+        }
+        if self.c_set {
+            tags.push("C_SET".to_string());
+        }
+        if self.c_cache {
+            tags.push("C_CACHE".to_string());
+        }
+        if let Some(contrast) = self.config_contrast {
+            tags.push("CONFIG_CONTRAST".to_string());
+            tags.push(contrast.to_string());
+        }
+        if let Some(brightness) = self.config_brightness {
+            tags.push("CONFIG_BRIGHTNESS".to_string());
+            tags.push(brightness.to_string());
+        }
+        if let Some(blur) = self.config_blur {
+            tags.push("CONFIG_BLUR".to_string());
+            tags.push(blur.to_string());
+        }
+        if let Some(hue) = self.config_hue {
+            tags.push("CONFIG_HUE".to_string());
+            tags.push(hue.to_string());
+        }
+        if self.config_invert { tags.push("CONFIG_INVERT".to_string()); }
+        if self.config_flip_h { tags.push("CONFIG_FLIP_H".to_string()); }
+        if self.config_flip_v { tags.push("CONFIG_FLIP_V".to_string()); }
+        if let Some(displays) = &self.config_displays {
+            let displays_string = displays.into_iter().map(|d| {
+                d.to_string()
+            }).collect::<Vec<String>>().join(",");
+            tags.push("CONFIG_DISPLAYS".to_string());
+            tags.push(displays_string);
+        }
+        if let Some(templates) = &self.config_templates {
+            let templates_string = templates.into_iter().map(|t| {
+                t.to_string()
+            }).collect::<Vec<String>>().join(",");
+            tags.push("CONFIG_TEMPLATES".to_string());
+            tags.push(templates_string);
+        }
+        if let Some(resize_alg) = &self.config_resize_alg {
+            tags.push("CONFIG_RESIZE_ALG".to_string());
+            tags.push(resize_alg.to_string());
+        }
+        if let Some(thumb) = &self.rwal_thumb {
+            tags.push("RWAL_THUMB".to_string());
+            tags.push(thumb.to_string());
+        }
+        if let Some(clamp) = &self.rwal_clamp {
+            tags.push("RWAL_CLAMP".to_string());
+            tags.push(clamp.to_string());
+        }
+        if let Some(accent) = &self.rwal_accent {
+            tags.push("RWAL_ACCENT".to_string());
+            tags.push(accent.to_string());
+        }
+        if let Some(set_command) = &self.set_command {
+            tags.push("SET_COMMAND".to_string());
+            tags.push(set_command.to_string());
+        }
+        tags.join("    ")
+    }
+}
+
+impl Display {
+    fn new(
+        name: String,
+        w: u32,
+        h: u32,
+        x: u32,
+        y: u32,
+    ) -> Self {
+        Self {
+            name,
+            w,
+            h,
+            x,
+            y,
+        }
+    }
+    fn to_string(& self) -> String {
+        format!(
+            "{}:{}:{}:{}:{}",
+            self.name,
+            self.w,
+            self.h,
+            self.x,
+            self.y,
+        )
+    }
+}
+
+fn send(message: &str) -> std::io::Result<()> {
+    let message = format!("{}\n", message);
+
     let mut stream = UnixStream::connect(SOCKET_PATH)?;
     let mut reader = BufReader::new(stream.try_clone()?);
     stream.write_all(message.as_bytes())?;
     let mut response = String::new();
     reader.read_line(&mut response)?;
-
+    println!("{response}");
     Ok(())
+}
+
+fn get_value<T: std::str::FromStr>(list: &Vec<String>, prev_element: &str) -> Option<T> {
+    for (i, el) in list.iter().enumerate() {
+        if el == &prev_element {
+            if i + 1 < list.len() {
+                return match list[i + 1].parse::<T>() {
+                    Ok(val) => Some(val),
+                    Err(_) => None,
+                };
+            }
+        }
+    }
+    None
+}
+
+fn get_displays_value(list: &Vec<String>, prev_element: &str) -> Option<Vec<Display>> {
+    let mut displays: Vec<Display> = Vec::new();
+    
+    if let Some(raw_displays) = get_value::<String>(list, prev_element) {
+        for raw_display in raw_displays.split(";") {
+            let data: Vec<&str> = raw_display.split(":").collect();
+            if data.len() != 5 { continue; }
+            displays.push(Display::new(
+                data[0].parse().unwrap_or("name".to_string()),
+                data[1].parse().unwrap_or(0),
+                data[2].parse().unwrap_or(0),
+                data[3].parse().unwrap_or(0),
+                data[4].parse().unwrap_or(0),
+            ));
+        }
+    }
+    
+    match displays.is_empty() {
+        true => {
+            None
+        },
+        false => {
+            Some(displays)
+        }
+    }
+}
+
+fn get_templates_value(list: &Vec<String>, prev_element: &str) -> Option<Vec<String>> {
+    let mut templates: Vec<String> = Vec::new();
+
+    if let Some(raw_templates) = get_value::<String>(list, prev_element) {
+        templates = raw_templates.split(";").map(|x| {x.to_string()}).collect();
+    }
+
+    match templates.is_empty() {
+        true => {
+            None
+        },
+        false => {
+            Some(templates)
+        }
+    }
 }
 
 fn is_dir(path: &str) -> bool {
     fs::metadata(path).map(|meta| meta.is_dir()).unwrap_or(false)
-}
-
-fn is_file(path: &str) -> bool {
-    fs::metadata(path).map(|meta| meta.is_file()).unwrap_or(false)
 }
 
 fn select_random(strings: Vec<String>) -> String {
@@ -53,62 +356,6 @@ fn select_random(strings: Vec<String>) -> String {
     } else {
         panic!("Directory is empty")
     }
-}
-
-fn replace_arguments(args: &Vec<String>) -> Result<String, String> {
-    let mut args: Vec<String> = args.clone();
-    
-    if let Some(pos) = args.iter().position(|arg| arg == "-I") {
-        if pos + 1 < args.len() {
-            let next_element = &args[pos + 1];
-            if is_dir(&next_element) {
-                args[pos + 1] = get_absolute_path(select_random(get_images_from_dir(&next_element)));
-            } 
-            else if is_file(&next_element) {
-                args[pos + 1] = get_absolute_path(next_element.to_string());
-            }
-        }
-    }
-
-    let mut result = args.join("    ")
-        .replace("-S", "W_SET")
-        .replace("-W", "W_CACHE")
-        .replace("-T", "C_SET")
-        .replace("-C", "C_CACHE")
-        .replace("--set-command", "SET_COMMAND")
-        .replace("-I", "IMAGE")
-        .replace("--contrast", "CONFIG_CONTRAST")
-        .replace("--brightness", "CONFIG_BRIGHTNESS")
-        .replace("--hue", "CONFIG_HUE")
-        .replace("--blur", "CONFIG_BLUR")
-        .replace("--invert", "CONFIG_INVERT")
-        .replace("--fliph", "CONFIG_FLIP_H")
-        .replace("--flipv", "CONFIG_FLIP_V")
-        .replace("--displays", "CONFIG_DISPLAYS")
-        .replace("--templates", "CONFIG_TEMPLATES")
-        .replace("--resize-alg", "CONFIG_RESIZE_ALG")
-        .replace("--thumb", "RWAL_THUMB")
-        .replace("--clamp", "RWAL_CLAMP")
-        .replace("--count", "RWAL_COUNT")
-        .replace("--accent", "RWAL_ACCENT")
-        .replace("--get-displays", "GET_DISPLAYS")
-        .replace("--get-templates", "GET_TEMPLATES")
-        .replace("--get-image-ops", "GET_IMAGE_OPS")
-        .replace("--get-rwal-params", "GET_RWAL_PARAMS")
-        .replace("--get-config", "GET_CONFIG");
-
-    if result.contains("W_SET") && result.contains("W_CACHE") {
-        result = result.replace("W_CACHE    ", "");
-        result = result.replace("    W_CACHE", "");
-    }
-    if result.contains("C_SET") && result.contains("C_CACHE") {
-        result = result.replace("C_CACHE    ", "");
-        result = result.replace("    C_CACHE", "");
-    }
-    if !REQUIRED_KEYWORDS.iter().any(|&keyword| result.contains(keyword)) {
-        return Err("Missing -I".to_string());
-    }
-    Ok(result)
 }
 
 fn is_file_image(extension: &str) -> bool {
@@ -149,57 +396,6 @@ fn get_images_from_dir(dir: &str) -> Vec<String> {
         }
     }
     res
-}
-
-fn cache_directory(args: &Vec<String>, argument: &str, prefix: &str) {
-    let dir = args.iter()
-        .position(|x| x == argument)
-        .and_then(|pos| args.get(pos + 1))
-        .unwrap();
-    
-    let images = get_images_from_dir(dir);
-    
-    let _ = send(
-        images.into_iter()
-            .map(|x| {
-                format!("IMAGE    {}    {}", x, prefix)
-            })
-            .collect::<Vec<String>>()
-            .join(";")
-    );
-}
-
-fn main() {
-    if !Path::new(SOCKET_PATH).exists() {
-        eprintln!("Daemon is not found. Is it running?");
-        return;
-    }
-
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.contains(&String::from("--help")) {
-        println!("{}", HELP_MESSAGE);
-        return;
-    }
-    if args.contains(&String::from("--cache")) {
-        cache_directory(&args, "--cache", "W_CACHE");
-        return;
-    }
-    if args.contains(&String::from("--colors")) {
-        cache_directory(&args, "--colors", "C_CACHE");
-        return;
-    }
-    if args.contains(&String::from("--cache-all")) {
-        cache_directory(&args, "--cache-all", "C_CACHE    W_CACHE");
-        return;
-    }
-    match replace_arguments(&args) {
-        Ok(message) => {
-            let _ = send(message);
-        },
-        Err(message) => {
-            eprintln!("Error {}\n--help for more commands", message);
-        },
-    }
 }
 
 const SOCKET_PATH: &str = "/tmp/rpaper-daemon";
@@ -254,12 +450,8 @@ r#"+-----------------------------+----------------------------------------------
 +-----------------------------+-------------------------------------------------------+
 | -I <path/to/image>          | sends wallpaper to daemon                             |
 |                             |                                                       |
-| --cache <dir>               | selects all images from dir and cache them            |
-|                             |                                                       |
-| --colors <dir>              | selects all images from dir and cache they colors     |
-|                             |                                                       |
-| --cache-all <dir>           | selects all images from dir and cache them            |
-|                             | (colors and wallpapers)                               |
+| --cache                     | allow applying actions to all images from directory   |
+|                             | if -I argument is a directory                         |
 +-----------------------------+-------------------------------------------------------+
 | --get-displays              | get loaded displays in json format                    |
 |                             |                                                       |
@@ -271,7 +463,7 @@ r#"+-----------------------------+----------------------------------------------
 |                             |                                                       |
 | --get-config                | get loaded config in json format                      |
 |                             |                                                       |
-| --is-cached <path/to/image> | get cached images paths                               |
+| --get-cache                 | get cached images paths                               |
 +-----------------------------+-------------------------------------------------------+"#;
 
 // Socket calls
@@ -342,6 +534,6 @@ r#"+-----------------------------+----------------------------------------------
 // |                              |                                                       |
 // | GET_CONFIG                   | get loaded config in json format                      |
 // |                              |                                                       |
-// | IS_CACHED <path/to/image>    | get cached images paths                               |
+// | GET_CACHE                    | get cached images paths and cache status              |
 // +------------------------------+-------------------------------------------------------+
 // Each socket call and value must be splitted by four spaces "    "
