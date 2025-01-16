@@ -65,23 +65,20 @@ pub fn encode_string(string: &str) -> String {
 }
 
 pub fn system(command: &str) {
-    let mut child = Command::new("bash")
-        .args(["-c", &command])
+    let mut child = Command::new("nohup")
+        .args(["bash", "-c", &command])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("Failed to spawn command");
-
+        .spawn().expect("");
     let _exit_status = child.wait().expect("Failed to wait for command");
 }
 
 pub fn spawn(command: &str) {
-    Command::new("bash")
-        .args(["-c", &command])
+    Command::new("nohup")
+        .args(["bash", "-c", &command])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .spawn()
-        .expect("Failed to spawn command");
+        .spawn().expect("");
 }
 
 fn main() {    

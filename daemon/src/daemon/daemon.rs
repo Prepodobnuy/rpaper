@@ -263,7 +263,7 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
 fn start_directory_watcher(directories: &Vec<String>, tx: mpsc::Sender<MpscData>) {
     let directories = directories.clone();
     let _ = thread::Builder::new().name("directory watcher thread".to_string()).spawn(move || {
-        while Path::new(SOCKET_PATH).exists() {
+        loop {
             for dir in directories.iter() {
                 let path = Path::new(&dir);
                 if !path.exists() {
@@ -287,7 +287,7 @@ fn start_config_watcher(config_path: &str, tx: mpsc::Sender<MpscData>) {
     let _ = thread::Builder::new().name("config watcher thread".to_string()).spawn(move || {
         if let Ok(file_caption) = read_file(&config_path) {
             let mut hash = file_caption.hash;
-            while Path::new(SOCKET_PATH).exists() {
+            loop {
                 if let Ok(file_caption) = read_file(&config_path) {
                     if file_caption.hash != hash {
                         hash = file_caption.hash;

@@ -116,7 +116,9 @@ impl Template {
         }
 
         if let Some(command) = &params_val.before {
-            system(command);
+            if command.len() > 0 {
+                system(command);
+            }
         }
 
         let mut color_values = Vec::new();
@@ -173,7 +175,9 @@ impl Template {
         }
 
         if let Some(command) = &params_val.after {
-            spawn(command);
+            if command.len() > 0 {
+                spawn(command);
+            }
         }
 
     }
