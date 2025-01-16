@@ -1,6 +1,6 @@
 use std::thread;
 
-use crate::colorscheme::rwal::RwalParams;
+use crate::colorscheme::rwal::{OrderBy, RwalParams};
 use crate::colorscheme::scheme::{cache_scheme, set_scheme};
 use crate::logger::logger::log;
 use crate::unix_timestamp;
@@ -59,6 +59,7 @@ impl Request {
                         let mut clamp_range = _rwal_params.clamp_range;
                         let mut accent_color = _rwal_params.accent_color;
                         let mut colors = _rwal_params.colors;
+                        let mut order = _rwal_params.order;
     
                         if let Some(thumb) = request_tags.rwal_thumb {
                             thumb_range = thumb
@@ -72,8 +73,11 @@ impl Request {
                         if let Some(cols) = request_tags.rwal_count {
                             colors = cols
                         }
+                        if let Some(_order) = request_tags.rwal_order {
+                            order = _order
+                        }
     
-                        rwal_params = Some(RwalParams::new(thumb_range, clamp_range, accent_color, colors));
+                        rwal_params = Some(RwalParams::new(thumb_range, clamp_range, accent_color, colors, order));
                     }
     
                     config.rwal_params = rwal_params;
@@ -205,6 +209,7 @@ struct RequestTags {
     rwal_clamp: Option<(f32, f32)>,
     rwal_count: Option<u32>,
     rwal_accent: Option<u32>,
+    rwal_order: Option<OrderBy>,
 }
 
 impl RequestTags {
@@ -229,7 +234,8 @@ impl RequestTags {
         let mut rwal_clamp: Option<(f32, f32)> = None;
         let mut rwal_count: Option<u32> = None;
         let mut rwal_accent: Option<u32> = None;
-        
+        let mut rwal_order: Option<OrderBy> = None;
+
         let tags: Vec<String> = message.split("    ").map(|s| s.to_string()).collect();
 
         for (i, tag) in tags.clone().into_iter().enumerate() {
@@ -238,22 +244,23 @@ impl RequestTags {
                 "W_CACHE" =>           {w_cache           = Some(true)}, 
                 "C_SET" =>             {c_set             = Some(true)},
                 "C_CACHE" =>           {c_cache           = Some(true)},
-                "IMAGE" =>             {image             = get_string(&tags, i)},
-                "CONFIG_CONTRAST" =>   {config_contrast   = get_f(&tags, i)},
-                "CONFIG_BRIGHTNESS" => {config_brightness = get_i(&tags, i)},
-                "CONFIG_HUE" =>        {config_hue        = get_i(&tags, i)},
-                "CONFIG_BLUR" =>       {config_blur       = get_f(&tags, i)},
+                "IMAGE" =>             {image             = get_value::<String>(&tags, i)},
+                "CONFIG_CONTRAST" =>   {config_contrast   = get_value::<f32>(&tags, i)},
+                "CONFIG_BRIGHTNESS" => {config_brightness = get_value::<i32>(&tags, i)},
+                "CONFIG_HUE" =>        {config_hue        = get_value::<i32>(&tags, i)},
+                "CONFIG_BLUR" =>       {config_blur       = get_value::<f32>(&tags, i)},
                 "CONFIG_INVERT" =>     {config_invert     = Some(true)},
                 "CONFIG_FLIP_H" =>     {config_flip_h     = Some(true)},
                 "CONFIG_FLIP_V" =>     {config_flip_v     = Some(true)},
                 "CONFIG_DISPLAYS" =>   {config_displays   = get_displays(&tags, i)},
                 "CONFIG_TEMPLATES" =>  {config_templates  = get_templates(&tags, i)},
-                "CONFIG_RESIZE_ALG" => {config_resize_alg = get_string(&tags, i)},
+                "CONFIG_RESIZE_ALG" => {config_resize_alg = get_value::<String>(&tags, i)},
                 "RWAL_THUMB" =>        {rwal_thumb        = get_thumb(&tags, i)},
                 "RWAL_CLAMP" =>        {rwal_clamp        = get_clamp(&tags, i)},
-                "RWAL_COUNT" =>        {rwal_count        = get_u(&tags, i)},
-                "RWAL_ACCENT" =>       {rwal_accent       = get_u(&tags, i)},
-                "SET_COMMAND" =>       {set_command       = get_string(&tags, i)},
+                "RWAL_COUNT" =>        {rwal_count        = get_value::<u32>(&tags, i)},
+                "RWAL_ACCENT" =>       {rwal_accent       = get_value::<u32>(&tags, i)},
+                "RWAL_ORDER" =>        {rwal_order        = get_rwal_order(&tags, i)},
+                "SET_COMMAND" =>       {set_command       = get_value::<String>(&tags, i)},
                 _ => {},
             }
         }
@@ -279,38 +286,14 @@ impl RequestTags {
             rwal_clamp,
             rwal_count,
             rwal_accent,
+            rwal_order,
         }
     }
 }
 
-fn get_string(tags: &Vec<String>, index: usize) -> Option<String> {
+fn get_value<T: std::str::FromStr>(tags: &Vec<String>, index: usize) -> Option<T> {
     if index + 1 < tags.len() {
-        return Some(tags[index + 1].clone());
-    }
-    None
-}
-
-fn get_f(tags: &Vec<String>, index: usize) -> Option<f32> {
-    if index + 1 < tags.len() {
-        if let Ok(value) = tags[index + 1].parse::<f32>() {
-            return Some(value);
-        }
-    }
-    None
-}
-
-fn get_i(tags: &Vec<String>, index: usize) -> Option<i32> {
-    if index + 1 < tags.len() {
-        if let Ok(value) = tags[index + 1].parse::<i32>() {
-            return Some(value);
-        }
-    }
-    None
-}
-
-fn get_u(tags: &Vec<String>, index: usize) -> Option<u32> {
-    if index + 1 < tags.len() {
-        if let Ok(value) = tags[index + 1].parse::<u32>() {
+        if let Ok(value) = tags[index + 1].parse::<T>() {
             return Some(value);
         }
     }
@@ -319,7 +302,7 @@ fn get_u(tags: &Vec<String>, index: usize) -> Option<u32> {
 
 fn get_displays(tags: &Vec<String>, index: usize) -> Option<Vec<Display>> {
     if index + 1 < tags.len() {
-        if let Some(raw_displays) = get_string(tags, index) {
+        if let Some(raw_displays) = get_value::<String>(tags, index) {
             let mut displays: Vec<Display> = Vec::new();
             raw_displays.split(",")
                 .for_each(|raw_display| {
@@ -335,7 +318,7 @@ fn get_displays(tags: &Vec<String>, index: usize) -> Option<Vec<Display>> {
 
 fn get_templates(tags: &Vec<String>, index: usize) -> Option<Vec<Template>> {
     if index + 1 < tags.len() {
-        if let Some(raw_templates) = get_string(tags, index) {
+        if let Some(raw_templates) = get_value::<String>(tags, index) {
             let mut templates: Vec<Template> = Vec::new();
             raw_templates.split(",")
                 .for_each(|raw_template| {
@@ -349,7 +332,7 @@ fn get_templates(tags: &Vec<String>, index: usize) -> Option<Vec<Template>> {
 
 fn get_clamp(tags: &Vec<String>, index: usize) -> Option<(f32, f32)> {
     if index + 1 < tags.len() {
-        if let Some(raw_clamp) = get_string(tags, index) {
+        if let Some(raw_clamp) = get_value::<String>(tags, index) {
             let clamp: Vec<String> = raw_clamp.split("X")
                 .map(|s| s.to_string())
                 .collect();
@@ -367,7 +350,7 @@ fn get_clamp(tags: &Vec<String>, index: usize) -> Option<(f32, f32)> {
 
 fn get_thumb(tags: &Vec<String>, index: usize) -> Option<(u32, u32)> {
     if index + 1 < tags.len() {
-        if let Some(raw_thumb) = get_string(tags, index) {
+        if let Some(raw_thumb) = get_value::<String>(tags, index) {
             let thumb: Vec<String> = raw_thumb.split("X")
                 .map(|s| s.to_string())
                 .collect();
@@ -379,6 +362,20 @@ fn get_thumb(tags: &Vec<String>, index: usize) -> Option<(u32, u32)> {
                 }
             }
         }
+    }
+    None
+}
+
+fn get_rwal_order(tags: &Vec<String>, index: usize) -> Option<OrderBy> {
+    if index + 1 < tags.len() {
+        if let Some(order) = get_value::<String>(tags, index) {
+            match order.as_str() {
+                "h" | "H" => {return Some(OrderBy::Hue);},
+                "s" | "S" => {return Some(OrderBy::Saturation);},
+                "v" | "V" | "b" | "B" => {return Some(OrderBy::Brightness);},
+                _ => {},
+            }
+        } 
     }
     None
 }

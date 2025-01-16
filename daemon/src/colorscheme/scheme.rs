@@ -2,7 +2,7 @@ use std::{path::Path, thread};
 
 use crate::{daemon::config::Config, encode_string, expand_user, get_image_name, logger::logger::log, wallpaper::display::ImageOperations, COLORS_DIR};
 
-use super::rwal::{cache_rwal, run_rwal, RwalParams};
+use super::rwal::{cache_rwal, run_rwal, OrderBy, RwalParams};
 
 pub fn set_scheme(config: &Config, image_path: &str) {
     if let Some(image_ops) = &config.image_operations {
@@ -59,12 +59,17 @@ fn get_cache_path(image_ops: &ImageOperations, rwal_params: &RwalParams, image_p
         expand_user(COLORS_DIR), 
         encode_string(
             &format!(
-                "{}{}{}{}{}{}{}{}{}{}{}",
+                "{}{}{}{}{}{}{}{}{}{}{}{}",
                 get_image_name(image_path),
                 image_ops.brightness,
                 image_ops.contrast,
                 image_ops.hue,
                 image_ops.invert,
+                match rwal_params.order {
+                    OrderBy::Hue => "H",
+                    OrderBy::Saturation => "S",
+                    OrderBy::Brightness => "V",
+                },
                 rwal_params.accent_color,
                 rwal_params.clamp_range.0,
                 rwal_params.clamp_range.1,

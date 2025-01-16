@@ -3,6 +3,7 @@ use std::io::Read;
 
 use serde_json::Value;
 
+use crate::colorscheme::rwal::OrderBy;
 use crate::expand_user;
 use crate::wallpaper::display::Display;
 use crate::wallpaper::display::ImageOperations;
@@ -132,7 +133,13 @@ fn read_rwal_params(value: &Value) -> Option<RwalParams> {
     let accent_color = rwal["accent_color"].as_u64().unwrap_or(4) as u32;
     let colors = rwal["rwal_colors"].as_u64().unwrap_or(7) as u32;
 
-    Some(RwalParams::new(thumb_range, clamp_range, accent_color, colors))
+    let order = match rwal["order_by"].as_str().unwrap_or("h") {
+        "s" | "S" => {OrderBy::Saturation},
+        "v" | "V" | "b" | "B" => {OrderBy::Brightness},
+        _ => {OrderBy::Hue},
+    };
+
+    Some(RwalParams::new(thumb_range, clamp_range, accent_color, colors, order))
 }
 
 fn read_image_operations(value: &Value) -> Option<ImageOperations> {

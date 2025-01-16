@@ -9,8 +9,16 @@ use palette::cast::from_component_slice;
 use palette::{IntoColor, Lab, Srgb};
 use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 
+use crate::logger::logger::warn;
 use crate::wallpaper::display::ImageOperations;
 use crate::{expand_user, COLORS_PATH};
+
+#[derive(Clone, Copy)]
+pub enum OrderBy {
+    Hue,
+    Saturation,
+    Brightness,
+}
 
 #[derive(Clone)]
 pub struct RwalParams {
@@ -18,6 +26,7 @@ pub struct RwalParams {
     pub clamp_range: (f32, f32),
     pub accent_color: u32,
     pub colors: u32,
+    pub order: OrderBy,
 }
 
 impl RwalParams {
@@ -26,12 +35,14 @@ impl RwalParams {
         clamp_range: (f32, f32),
         accent_color: u32,
         colors: u32,
+        order: OrderBy,
     ) -> Self {
         RwalParams {
             thumb_range,
             clamp_range,
             accent_color,
             colors,
+            order,
         }
     }
 }
@@ -92,6 +103,7 @@ pub fn cache_rwal(image_path: &str, color_scheme_path: &str, rwal_params: &RwalP
         image, 
         rwal_params.accent_color,
         rwal_params.clamp_range,
+        rwal_params.order,
     ).join("\n");
 
     fs::write(color_scheme_path, &pallete).unwrap();
@@ -139,28 +151,72 @@ fn merge_rgb(f_color: RGB, s_color: RGB) -> RGB {
     RGB::new(r, g, b)
 }
 
-fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> {
+fn get_pallete(image: &RgbImage, accent_color: u32, clamp_range: (f32, f32), order: OrderBy) -> Vec<String> {
+    let colors = get_colors(image);
+    let mut clamped_colors = Vec::new();
+
+    for color in &colors {
+        clamped_colors.extend(clamp_color(
+            color.clone(), 
+            clamp_range.0, 
+            clamp_range.1,
+        ))
+    }
+
+    let colors_slice = clamped_colors.as_slice();
+    let lab: Vec<Lab> = from_component_slice::<Srgb<u8>>(&colors_slice)
+        .iter()
+        .map(|x| x.into_format().into_color())
+        .collect();
+
+    let mut clusters = Kmeans::new();
+    for i in 0..3 {
+        let run_result = get_kmeans(6, 100, 0.001, false, &lab, 64 + i as u64);
+        if run_result.score < clusters.score {
+            clusters = run_result;
+        }
+    }
+
+    prepare_colors(clusters, accent_color, order)
+}
+
+fn prepare_colors(clusters: Kmeans<Lab>, accent_color: u32, order: OrderBy) -> Vec<String> {
     let lab_centroids: Vec<Lab> = clusters.centroids.to_vec();
     let mut hsv_colors = Vec::new();
     for lab in lab_centroids {
         hsv_colors.push(lab_to_hsv(lab))
     }
 
-    hsv_colors.sort_by(|a, b| a.h.partial_cmp(&b.h).unwrap_or(Ordering::Equal));
-
-    let mut rgb_colors = Vec::new();
-    for hsv in hsv_colors {
-        rgb_colors.push(RGB::from(hsv));
+    match order {
+        // sort by hue
+        OrderBy::Hue => {
+            hsv_colors.sort_by(|a, b| a.h.partial_cmp(&b.h).unwrap_or(Ordering::Equal));
+        }
+        OrderBy::Saturation => {
+            hsv_colors.sort_by(|a, b| a.s.partial_cmp(&b.s).unwrap_or(Ordering::Equal));
+        }
+        // sort by brightness
+        OrderBy::Brightness => {
+            hsv_colors.sort_by(|a, b| a.v.partial_cmp(&b.v).unwrap_or(Ordering::Equal));
+        },
     }
 
+    let mut rgb_colors = hsv_colors.into_iter().map(|hsv| {
+        RGB::from(hsv)
+    }).collect::<Vec<RGB>>();
+
     if rgb_colors.len() < 6 {
-        println!("The number of generated colors is not enough! \nNeeded colors: 5\nGenerated colors: {}", rgb_colors.len());
+        warn(&format!("The number of generated colors is not enough!. Needed colors: 5\nGenerated colors: {}", rgb_colors.len()));
         for _ in 0..5 - rgb_colors.len() {
             rgb_colors.push(RGB::new(100.0, 100.0, 100.0));
         }
     }
 
-    let accent = rgb_colors[accent_color as usize];
+    let accent = rgb_colors[{
+        if accent_color > 5 {5}
+        else if accent_color < 0 {0}
+        else {accent_color}
+    } as usize];
     let bg_color = merge_rgb(RGB::new(0.0, 0.0, 0.0), accent.clone());
     let fg_color = merge_rgb(RGB::new(255.0, 255.0, 255.0), accent.clone());
 
@@ -192,33 +248,4 @@ fn order_colors_by_hue(clusters: Kmeans<Lab>, accent_color: u32) -> Vec<String> 
     res.extend(res.clone());
     
     res
-}
-
-fn get_pallete(image: &RgbImage, accent_color: u32, clamp_range: (f32, f32)) -> Vec<String> {
-    let colors = get_colors(image);
-    let mut clamped_colors = Vec::new();
-
-    for color in &colors {
-        clamped_colors.extend(clamp_color(
-            color.clone(), 
-            clamp_range.0, 
-            clamp_range.1,
-        ))
-    }
-
-    let colors_slice = clamped_colors.as_slice();
-    let lab: Vec<Lab> = from_component_slice::<Srgb<u8>>(&colors_slice)
-        .iter()
-        .map(|x| x.into_format().into_color())
-        .collect();
-
-    let mut clusters = Kmeans::new();
-    for i in 0..3 {
-        let run_result = get_kmeans(6, 100, 0.001, false, &lab, 64 + i as u64);
-        if run_result.score < clusters.score {
-            clusters = run_result;
-        }
-    }
-
-    order_colors_by_hue(clusters, accent_color)
 }

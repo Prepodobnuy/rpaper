@@ -47,6 +47,7 @@ struct Request {
     rwal_thumb: Option<String>,
     rwal_clamp: Option<String>,
     rwal_accent: Option<u32>,
+    rwal_order: Option<String>,
     get_displays: bool,
     get_templates: bool,
     get_image_ops: bool,
@@ -89,14 +90,13 @@ impl Request {
         let config_resize_alg = get_value::<String>(&input, "--resize-alg");
         let rwal_thumb = get_value::<String>(&input, "--thumb");
         let rwal_clamp = get_value::<String>(&input, "--clamp");
-
+        let rwal_order = get_value::<String>(&input, "--order");
         // nums
         let config_contrast = get_value::<i32>(&input, "--contrast");
         let config_brightness = get_value::<f32>(&input, "--brightness");
         let config_hue = get_value::<i32>(&input, "--hue");
         let config_blur = get_value::<f32>(&input, "--blur");
         let rwal_accent = get_value::<u32>(&input, "--accent");
-
         // arrays
         let config_displays = get_displays_value(&input, "--displays");
         let config_templates = get_templates_value(&input, "--templates");
@@ -122,6 +122,7 @@ impl Request {
             rwal_thumb,
             rwal_clamp,
             rwal_accent,
+            rwal_order,
             get_displays,
             get_templates,
             get_image_ops,
@@ -237,6 +238,10 @@ impl Request {
         if let Some(accent) = &self.rwal_accent {
             tags.push("RWAL_ACCENT".to_string());
             tags.push(accent.to_string());
+        }
+        if let Some(order) = &self.rwal_order {
+            tags.push("RWAL_ORDER".to_string());
+            tags.push(order.to_string());
         }
         if let Some(set_command) = &self.set_command {
             tags.push("SET_COMMAND".to_string());
@@ -432,21 +437,39 @@ r#"+-----------------------------+----------------------------------------------
 | --flipv                     | flip image verticaly                                  |
 |                             |                                                       |
 | --displays <value>          | set displays wallpaper setted to params               |
-|                             | example: HDMI-A-1:1920:1080:0:0,DP-1:1080:1920:0:0    |
+|                             |     example:                                          |
+|                             |     HDMI-A-1:1920:1080:0:0,DP-1:1080:1920:0:0         |
 |                             |                                                       |
 | --templates <value>         | set templates to be applied                           |
-|                             | example: path,anotherpath,anotherpath                 |
+|                             |     example:                                          |
+|                             |     path,anotherpath,anotherpath                      |
 |                             |                                                       |
 | --resize-alg <value>        | use different resize algorithm for wallpaper cache    |
 +-----------------------------+-------------------------------------------------------+
 | --thumb <value>             | set the dimensions of the image thumb                 |
 |                             | from which the colors are taken                       |
+|                             |     possible values:                                  |
+|                             |     1-<int>X1-<int>                                   |
+|                             |                                                       |
 |                             |                                                       |
 | --clamp <value>             | set the clamp range to pallete colors                 |
+|                             |     possible values:                                  |
+|                             |     1-255X1-255                                       |
+|                             |                                                       |
 |                             |                                                       |
 | --count <value>             | set the number of colors to be generated              |
+|                             |     work in progress..                                |
 |                             |                                                       |
 | --accent <value>            | set the accent color id                               |
+|                             |     possible values:                                  |
+|                             |     0-5                                               |
+|                             |                                                       |
+| --order <value>             | set the colorscheme order                             |
+|                             |     possible values:                                  |
+|                             |     h - order by hue                                  |
+|                             |     s - order by saturation                           |
+|                             |     h - order by brightness                           |
+|                             |                                                       |
 +-----------------------------+-------------------------------------------------------+
 | -I <path/to/image>          | sends wallpaper to daemon                             |
 |                             |                                                       |
@@ -514,6 +537,9 @@ r#"+-----------------------------+----------------------------------------------
 // | RWAL_COUNT colors_count      | set the number of colors to be generated              |
 // |                              |                                                       |
 // | RWAL_ACCENT accent_color_id  | set the accent color id                               |
+// |                              |                                                       |
+// | RWAL_ORDER order_char        | set the colorscheme ordering                          |
+// |                              |                                                       |
 // +------------------------------+-------------------------------------------------------+
 // | IMAGE <path/to/image>        | sends wallpaper to daemon                             |
 // |                              |                                                       |
