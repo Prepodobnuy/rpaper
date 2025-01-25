@@ -50,6 +50,7 @@ struct Request {
     rwal_order: Option<String>,
     get_displays: bool,
     get_templates: bool,
+    get_current_colorscheme: bool,
     get_image_ops: bool,
     get_rwal_params: bool,
     get_config: bool,
@@ -82,6 +83,7 @@ impl Request {
 
         let get_displays = input.contains(&"--get-displays".to_string());
         let get_templates = input.contains(&"--get-templates".to_string());
+        let get_current_colorscheme = input.contains(&"--get-current-scheme".to_string());
         let get_image_ops = input.contains(&"--get-image-ops".to_string());
         let get_rwal_params = input.contains(&"--get-rwal-params".to_string());
         let get_config = input.contains(&"--get-config".to_string());
@@ -131,6 +133,7 @@ impl Request {
             rwal_order,
             get_displays,
             get_templates,
+            get_current_colorscheme,
             get_image_ops,
             get_rwal_params,
             get_config,
@@ -147,6 +150,9 @@ impl Request {
         }
         if self.get_templates {
             let _ = send("GET_TEMPLATES");
+        }
+        if self.get_current_colorscheme {
+            let _ = send("GET_SCHEME");
         }
         if self.get_image_ops {
             let _ = send("GET_IMAGE_OPS");
@@ -496,6 +502,8 @@ r#"+-----------------------------+----------------------------------------------
 +-----------------------------+-------------------------------------------------------+
 | --get-displays              | get loaded displays in json format                    |
 |                             |                                                       |
+| --get-current-scheme        | get current color scheme                              |
+|                             |                                                       |
 | --get-templates             | get loaded templates in json format                   |
 |                             |                                                       |
 | --get-image-ops             | get loaded image operations in json format            |
@@ -520,8 +528,8 @@ r#"+-----------------------------+----------------------------------------------
 // |                              |                                                       |
 // | W_CACHE                      | cache wallpaper                                       |
 // |                              |                                                       |
-// | C_SET                        | apply color_scheme, would cache colors                |
-// |                              | if they are not cached                                |
+// | C_SET                        | apply color_scheme,                                   |
+// |                              | would cache colorscheme if it is not cached           |
 // |                              |                                                       |
 // | C_CACHE                      | cache colors                                          |
 // |                              |                                                       |
@@ -542,10 +550,12 @@ r#"+-----------------------------+----------------------------------------------
 // | CONFIG_FLIP_V                | flip image verticaly                                  |
 // |                              |                                                       |
 // | CONFIG_DISPLAYS <value>      | set displays wallpaper setted to params               |
-// |                              | example: HDMI-A-1:1920:1080:0:0,DP-1:1080:1920:0:0    |
+// |                              |     value example:                                    |
+// |                              |         HDMI-A-1:1920:1080:0:0,DP-1:1080:1920:0:0     |
 // |                              |                                                       |
 // | CONFIG_TEMPLATES <value>     | set templates to be applied                           |
-// |                              | example: path,anotherpath,anotherpath                 |
+// |                              |     value example:                                    |
+// |                              |         path,anotherpath,anotherpath                  |
 // |                              |                                                       |
 // | CONFIG_RESIZE_ALG <value>    | use different resize algorithm for wallpaper cache    |
 // +------------------------------+-------------------------------------------------------+
@@ -572,6 +582,8 @@ r#"+-----------------------------+----------------------------------------------
 // +------------------------------+-------------------------------------------------------+
 // | GET_DISPLAYS                 | get loaded displays in json format                    |
 // |                              |                                                       |
+// | GET_SCHEME                   | get current colorscheme in json format                |
+// |                              |                                                       |
 // | GET_TEMPLATES                | get loaded templates in json format                   |
 // |                              |                                                       |
 // | GET_IMAGE_OPS                | get loaded image operations in json format            |
@@ -581,8 +593,8 @@ r#"+-----------------------------+----------------------------------------------
 // | GET_CONFIG                   | get loaded config in json format                      |
 // |                              |                                                       |
 // | GET_W_CACHE                  | get cached images paths                               |
-// |                              |     (automaticaly caches image if needed)             |
-// |                              |     responds with json-like string                    |
+// |                              | responds with json-like string                        |
+// |                              | (automaticaly caches image if needed)                 |
 // |                              |     respond examle:                                   |
 // |                              |         [                                             |
 // |                              |           {                                           |
@@ -597,8 +609,8 @@ r#"+-----------------------------+----------------------------------------------
 // |                              |                                                       |
 // |                              |                                                       |
 // | GET_C_CACHE                  | get color pallete of an image                         |
-// |                              |     (automaticaly caches colors if needed)            |
-// |                              |     responds with json-like string                    |
+// |                              | responds with json-like string                        |
+// |                              | (automaticaly caches colorscheme if needed)           |
 // |                              |     respond examle:                                   |
 // |                              |         [                                             |
 // |                              |           "pallete color 0 in HEX",                   |

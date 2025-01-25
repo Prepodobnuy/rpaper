@@ -10,7 +10,7 @@ use sha2::{Sha256, Digest};
 use crate::colorscheme::scheme::get_cached_colors;
 use crate::logger::logger::{err, info, log};
 use crate::wallpaper::display::{cache_wallpaper, get_cached_image_names, get_cached_image_paths, WCacheInfo};
-use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
+use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, COLORS_PATH, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
 
@@ -95,6 +95,7 @@ pub enum MpscData {
 pub enum InfoRequest {
     DisplaysRequest,
     TemplatesRequest,
+    CurrentColorSchemeRequest,
     ImageOpsRequest,
     RwalParamsRequest,
     ConfigRequest,
@@ -151,6 +152,25 @@ fn process_info_request (config: Config, request: InfoRequest) -> Option<String>
                 None
             }
         },
+        InfoRequest::CurrentColorSchemeRequest => {
+            log("Current colorscheme request received.");
+            if !Path::new(&expand_user(COLORS_PATH)).exists() {
+                return None;
+            }
+            if let Ok(data) = fs::read_to_string(&expand_user(COLORS_PATH)) {
+                return Some(format!(
+                    "[{}]",
+                    data.split("\n")
+                        .into_iter()
+                        .map(|x| {
+                            format!("\"{x}\"")
+                        })
+                        .collect::<Vec<String>>()
+                        .join(",")
+                ));
+            }
+            None
+        }
         InfoRequest::ImageOpsRequest => {
             log("Image operations request received.");
             if let Some(image_ops) = config.image_operations {
@@ -230,6 +250,7 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
     let info_patterns = [
         "GET_DISPLAYS",
         "GET_TEMPLATES",
+        "GET_SCHEME",
         "GET_IMAGE_OPS",
         "GET_RWAL_PARAMS",
         "GET_CONFIG",
@@ -242,6 +263,7 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
             let request = match pat {
                 "GET_DISPLAYS"    => {MpscData::InfoRequest(InfoRequest::DisplaysRequest)},
                 "GET_TEMPLATES"   => {MpscData::InfoRequest(InfoRequest::TemplatesRequest)},
+                "GET_SCHEME"      => {MpscData::InfoRequest(InfoRequest::CurrentColorSchemeRequest)}
                 "GET_IMAGE_OPS"   => {MpscData::InfoRequest(InfoRequest::ImageOpsRequest)},
                 "GET_RWAL_PARAMS" => {MpscData::InfoRequest(InfoRequest::RwalParamsRequest)},
                 "GET_CONFIG"      => {MpscData::InfoRequest(InfoRequest::ConfigRequest)},
