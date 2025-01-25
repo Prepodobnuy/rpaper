@@ -9,6 +9,7 @@ use crate::wallpaper::display::Display;
 use crate::wallpaper::display::ImageOperations;
 use crate::colorscheme::template::Template;
 use crate::colorscheme::rwal::RwalParams;
+use crate::wallpaper::display::WCacheInfo;
 
 
 #[derive(Clone)]
@@ -264,6 +265,16 @@ impl JsonString for Config {
                     "{}".to_string()
                 }
             }
+        )
+    }
+}
+
+impl JsonString for WCacheInfo {
+    fn json(& self) -> String {
+        format!(
+            "{{\"display\":\"{}\",\"path\":\"{}\"}}",
+            self.display_name,
+            self.path
         )
     }
 }

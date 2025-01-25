@@ -102,6 +102,21 @@ fn displays_max_height(displays: &Vec<Display>) -> u32 {
 }
 
 #[derive(Clone)]
+pub struct WCacheInfo {
+    pub display_name: String,
+    pub path: String,
+}
+
+impl WCacheInfo {
+    pub fn new(display_name: &str, path: &str) -> Self {
+        Self {
+            display_name: display_name.to_string(),
+            path: path.to_string(),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct ImageOperations {
     pub contrast: f32,
     pub brightness: i32,
@@ -172,36 +187,39 @@ fn get_image(
         _ => Triangle,
     };
 
-    let mut _image = image::open(img_path).unwrap();
-    let (nw, nh) = calculate_width_height(
-        _image.width(),
-        _image.height(),
-        displays_max_width,
-        displays_max_height,
-    );
-    _image = _image.resize(nw, nh, img_ra);
-    if image_ops.contrast != 0.0 {
-        _image = _image.adjust_contrast(image_ops.contrast)
+    if let Ok(mut _image) = image::open(img_path) {
+        let (nw, nh) = calculate_width_height(
+            _image.width(),
+            _image.height(),
+            displays_max_width,
+            displays_max_height,
+        );
+        _image = _image.resize(nw, nh, img_ra);
+        if image_ops.contrast != 0.0 {
+            _image = _image.adjust_contrast(image_ops.contrast)
+        }
+        if image_ops.brightness != 0 {
+            _image = _image.brighten(image_ops.brightness)
+        }
+        if image_ops.hue != 0 {
+            _image = _image.huerotate(image_ops.hue)
+        }
+        if image_ops.blur != 0.0 {
+            _image = _image.blur(image_ops.blur)
+        }
+        if image_ops.flip_h {
+            _image = _image.fliph()
+        }
+        if image_ops.flip_v {
+            _image = _image.flipv()
+        }
+        if image_ops.invert {
+            _image.invert()
+        }
+        _image
+    } else {
+        DynamicImage::new(1000, 1000, image::ColorType::Rgb8)
     }
-    if image_ops.brightness != 0 {
-        _image = _image.brighten(image_ops.brightness)
-    }
-    if image_ops.hue != 0 {
-        _image = _image.huerotate(image_ops.hue)
-    }
-    if image_ops.blur != 0.0 {
-        _image = _image.blur(image_ops.blur)
-    }
-    if image_ops.flip_h {
-        _image = _image.fliph()
-    }
-    if image_ops.flip_v {
-        _image = _image.flipv()
-    }
-    if image_ops.invert {
-        _image.invert()
-    }
-    _image
 }
 
 fn get_file_extension(file_name: &str) -> &str {

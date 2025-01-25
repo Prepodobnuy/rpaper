@@ -48,30 +48,33 @@ impl RwalParams {
 }
 
 fn get_thumbed_image(image_path: &str, image_ops: &ImageOperations, w: u32, h: u32) -> RgbImage {
-    let mut _image = image::open(image_path).unwrap();
-    _image = _image.resize_exact(w, h, Nearest);
-    if image_ops.contrast != 0.0 {
-        _image = _image.adjust_contrast(image_ops.contrast)
+    if let Ok( mut _image) = image::open(image_path) {
+        _image = _image.resize_exact(w, h, Nearest);
+        if image_ops.contrast != 0.0 {
+            _image = _image.adjust_contrast(image_ops.contrast)
+        }
+        if image_ops.brightness != 0 {
+            _image = _image.brighten(image_ops.brightness)
+        }
+        if image_ops.hue != 0 {
+            _image = _image.huerotate(image_ops.hue)
+        }
+        if image_ops.blur != 0.0 {
+            _image = _image.blur(image_ops.blur)
+        }
+        if image_ops.flip_h {
+            _image = _image.fliph()
+        }
+        if image_ops.flip_v {
+            _image = _image.flipv()
+        }
+        if image_ops.invert {
+            _image.invert()
+        }
+        _image.to_rgb8()
+    } else {
+        RgbImage::new(4, 4)
     }
-    if image_ops.brightness != 0 {
-        _image = _image.brighten(image_ops.brightness)
-    }
-    if image_ops.hue != 0 {
-        _image = _image.huerotate(image_ops.hue)
-    }
-    if image_ops.blur != 0.0 {
-        _image = _image.blur(image_ops.blur)
-    }
-    if image_ops.flip_h {
-        _image = _image.fliph()
-    }
-    if image_ops.flip_v {
-        _image = _image.flipv()
-    }
-    if image_ops.invert {
-        _image.invert()
-    }
-    _image.to_rgb8()
 }
 
 pub fn run_rwal(image_path: &str, color_scheme_path: &str, rwal_params: &RwalParams, image_ops: &ImageOperations) -> Vec<String> {
@@ -214,7 +217,6 @@ fn prepare_colors(clusters: Kmeans<Lab>, accent_color: u32, order: OrderBy) -> V
 
     let accent = rgb_colors[{
         if accent_color > 5 {5}
-        else if accent_color < 0 {0}
         else {accent_color}
     } as usize];
     let bg_color = merge_rgb(RGB::new(0.0, 0.0, 0.0), accent.clone());

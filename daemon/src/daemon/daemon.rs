@@ -7,8 +7,9 @@ use std::fs::{self, File};
 use std::path::Path;
 use sha2::{Sha256, Digest};
 
+use crate::colorscheme::scheme::get_cached_colors;
 use crate::logger::logger::{err, info, log};
-use crate::wallpaper::display::{get_cached_image_names, get_cached_image_paths};
+use crate::wallpaper::display::{cache_wallpaper, get_cached_image_names, get_cached_image_paths, WCacheInfo};
 use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
@@ -68,6 +69,8 @@ impl Daemon {
                     MpscData::InfoRequest(val) => {
                         if let Some(respond) = process_info_request(self.config.clone(), val) {
                             let _ = self.socket_tx.send(MpscData::ListenerRespond(respond));
+                        } else {
+                            let _ = self.socket_tx.send(MpscData::ListenerRespond("".to_string()));
                         }
                     },
                     _ => {},
@@ -95,7 +98,8 @@ pub enum InfoRequest {
     ImageOpsRequest,
     RwalParamsRequest,
     ConfigRequest,
-    CacheRequest(String),
+    WallpaperCacheRequest(String),
+    ColoschemeCacheRequest(String),
     EmptyRequest,
 }
 
@@ -167,38 +171,57 @@ fn process_info_request (config: Config, request: InfoRequest) -> Option<String>
             log("Config request received.");
             Some(config.json())
         },
-        InfoRequest::CacheRequest(val) => {
+        InfoRequest::WallpaperCacheRequest(val) => {
             log("Image cache info request received.");
-            if let Some(img_ops) = config.image_operations {
-                if let Some(displays) = config.displays {
+            if let Some(img_ops) = &config.image_operations {
+                if let Some(displays) = &config.displays {
                     let cached_image_paths = get_cached_image_paths(
                         &get_cached_image_names(&displays, &img_ops, &val),
                         WALLPAPERS_DIR,
                     );
-                    let mut cached = true;
-                    
+
                     for cache_path in &cached_image_paths {
                         if !Path::new(&expand_user(cache_path)).exists() {
-                            cached = false;
+                            cache_wallpaper(&config, &val);
                             break;
                         }
                     }
 
-                    Some(
-                        format!(
-                            "{{\"paths\":[{}],\"cached\":{}}}",
-                            cached_image_paths.into_iter().map(|path| {
-                                format!("\"{}\"", path)
-                            }).collect::<Vec<String>>().join(","),
-                            cached.to_string(),
-                        )
-                    )
+                    let mut w_caches = Vec::new(); 
+                    for (i, path) in cached_image_paths.into_iter().enumerate() {
+                        w_caches.push(WCacheInfo::new(&displays[i].name(), &path));
+                    }
+
+                    Some(format!(
+                        "[{}]",
+                        w_caches.into_iter()
+                            .map(|x| {
+                                x.json()
+                            })
+                            .collect::<Vec<String>>()
+                            .join(",")
+                    ))
 
                 }
                 else {None}
             }
             else {None}
         },
+        InfoRequest::ColoschemeCacheRequest(val) => {
+            log("Colorscheme cache info request received.");
+            if let Some(colors) = get_cached_colors(&config, &val) {
+                return Some(format!(
+                    "[{}]",
+                    colors.into_iter()
+                        .map(|x| {
+                            format!("\"{x}\"")
+                        })
+                        .collect::<Vec<String>>()
+                        .join(",")
+                ));
+            }
+            None
+        }
         _ => {None}
     }
 }
@@ -210,7 +233,8 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
         "GET_IMAGE_OPS",
         "GET_RWAL_PARAMS",
         "GET_CONFIG",
-        "GET_CACHE",
+        "GET_W_CACHE",
+        "GET_C_CACHE",
     ];
 
     for pat in info_patterns {
@@ -221,7 +245,7 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
                 "GET_IMAGE_OPS"   => {MpscData::InfoRequest(InfoRequest::ImageOpsRequest)},
                 "GET_RWAL_PARAMS" => {MpscData::InfoRequest(InfoRequest::RwalParamsRequest)},
                 "GET_CONFIG"      => {MpscData::InfoRequest(InfoRequest::ConfigRequest)},
-                "GET_CACHE"       => {
+                "GET_W_CACHE"     => {
                     match request.contains("IMAGE") {
                         true => {
                             let parts: Vec<&str> = request.split_whitespace().collect();
@@ -230,7 +254,29 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
                             match image_index {
                                 Some(index) => {
                                     if index + 1 < parts.len() {
-                                        MpscData::InfoRequest(InfoRequest::CacheRequest(parts[index + 1].to_string()))
+                                        MpscData::InfoRequest(InfoRequest::WallpaperCacheRequest(parts[index + 1].to_string()))
+                                    } else {
+                                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
+                                    }
+                                },
+                                None => {
+                                    MpscData::InfoRequest(InfoRequest::EmptyRequest)
+                                }
+                            }
+                        },
+                        false => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
+                    }
+                },
+                "GET_C_CACHE"     => {
+                    match request.contains("IMAGE") {
+                        true => {
+                            let parts: Vec<&str> = request.split_whitespace().collect();
+                            let image_index = parts.iter().position(|&s| s == "IMAGE");
+
+                            match image_index {
+                                Some(index) => {
+                                    if index + 1 < parts.len() {
+                                        MpscData::InfoRequest(InfoRequest::ColoschemeCacheRequest(parts[index + 1].to_string()))
                                     } else {
                                         MpscData::InfoRequest(InfoRequest::EmptyRequest)
                                     }
@@ -246,7 +292,7 @@ fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Rece
                 _ => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
             };
             if tx.send(request.clone()).is_ok() {
-                if let Ok(value) = listener_rx.recv_timeout(Duration::from_millis(100)) {
+                if let Ok(value) = listener_rx.recv_timeout(Duration::from_millis(10000)) {
                     if let MpscData::ListenerRespond(value) = value {
                         return Some(value);
                     }

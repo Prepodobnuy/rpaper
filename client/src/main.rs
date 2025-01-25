@@ -53,7 +53,10 @@ struct Request {
     get_image_ops: bool,
     get_rwal_params: bool,
     get_config: bool,
-    get_cache: bool,
+    get_w_cache: bool,
+    get_c_cache: bool,
+    w_cache_on_miss: bool,
+    c_cache_on_miss: bool,
 }
 
 struct Display {
@@ -82,8 +85,11 @@ impl Request {
         let get_image_ops = input.contains(&"--get-image-ops".to_string());
         let get_rwal_params = input.contains(&"--get-rwal-params".to_string());
         let get_config = input.contains(&"--get-config".to_string());
-        let get_cache = input.contains(&"--get-cache".to_string());
-        
+        let get_w_cache = input.contains(&"--get-w-cache".to_string());
+        let get_c_cache = input.contains(&"--get-c-cache".to_string());
+        let w_cache_on_miss = input.contains(&"--w-cache-on-miss".to_string());
+        let c_cache_on_miss = input.contains(&"--c-cache-on-miss".to_string());
+
         // strings
         let image = get_value::<String>(&input, "-I");
         let set_command = get_value::<String>(&input, "--set-command");
@@ -128,7 +134,10 @@ impl Request {
             get_image_ops,
             get_rwal_params,
             get_config,
-            get_cache,
+            get_w_cache,
+            get_c_cache,
+            w_cache_on_miss,
+            c_cache_on_miss,
         }
     }
 
@@ -175,8 +184,17 @@ impl Request {
         let mut tags: Vec<String> = Vec::new();
         tags.push("IMAGE".to_string());
         tags.push(image_path.to_string());
-        if self.get_cache {
-            tags.push("GET_CACHE".to_string());
+        if self.get_w_cache {
+            tags.push("GET_W_CACHE".to_string());
+        }
+        if self.get_c_cache {
+            tags.push("GET_C_CACHE".to_string());
+        }
+        if self.w_cache_on_miss {
+            tags.push("W_CACHE_ON_MISS".to_string());
+        }
+        if self.c_cache_on_miss {
+            tags.push("C_CACHE_ON_MISS".to_string());
         }
         if self.w_set {
             tags.push("W_SET".to_string());
@@ -486,7 +504,9 @@ r#"+-----------------------------+----------------------------------------------
 |                             |                                                       |
 | --get-config                | get loaded config in json format                      |
 |                             |                                                       |
-| --get-cache                 | get cached images paths                               |
+| --get-w-cache               | get cached images paths                               |
+|                             |                                                       |
+| --get-c-cache               | get color pallete of image                            |
 +-----------------------------+-------------------------------------------------------+"#;
 
 // Socket calls
@@ -560,6 +580,43 @@ r#"+-----------------------------+----------------------------------------------
 // |                              |                                                       |
 // | GET_CONFIG                   | get loaded config in json format                      |
 // |                              |                                                       |
-// | GET_CACHE                    | get cached images paths and cache status              |
+// | GET_W_CACHE                  | get cached images paths                               |
+// |                              |     (automaticaly caches image if needed)             |
+// |                              |     responds with json-like string                    |
+// |                              |     respond examle:                                   |
+// |                              |         [                                             |
+// |                              |           {                                           |
+// |                              |             "display": "HDMI-A-1",                    |
+// |                              |             "path": "some/path/to/cache/image"        |
+// |                              |           },                                          |
+// |                              |           {                                           |
+// |                              |             "display": "DP-1",                        |
+// |                              |             "path": "some/path/to/cache/image"        |
+// |                              |           }                                           |
+// |                              |         ]                                             |
+// |                              |                                                       |
+// |                              |                                                       |
+// | GET_C_CACHE                  | get color pallete of an image                         |
+// |                              |     (automaticaly caches colors if needed)            |
+// |                              |     responds with json-like string                    |
+// |                              |     respond examle:                                   |
+// |                              |         [                                             |
+// |                              |           "pallete color 0 in HEX",                   |
+// |                              |           "pallete color 1 in HEX",                   |
+// |                              |           "pallete color 2 in HEX",                   |
+// |                              |           "pallete color 3 in HEX",                   |
+// |                              |           "pallete color 4 in HEX",                   |
+// |                              |           "pallete color 5 in HEX",                   |
+// |                              |           "pallete color 6 in HEX",                   |
+// |                              |           "pallete color 7 in HEX",                   |
+// |                              |           "pallete color 8 in HEX",                   |
+// |                              |           "pallete color 9 in HEX",                   |
+// |                              |           "pallete color 10 in HEX",                  |
+// |                              |           "pallete color 11 in HEX",                  |
+// |                              |           "pallete color 12 in HEX",                  |
+// |                              |           "pallete color 13 in HEX",                  |
+// |                              |           "pallete color 14 in HEX",                  |
+// |                              |           "pallete color 15 in HEX"                   |
+// |                              |         ]                                             |
 // +------------------------------+-------------------------------------------------------+
 // Each socket call and value must be splitted by four spaces "    "

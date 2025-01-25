@@ -4,7 +4,7 @@ mod wallpaper;
 mod logger;
 
 use std::path::{PathBuf, Path};
-use std::{env, fs, thread};
+use std::{env, thread};
 use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 

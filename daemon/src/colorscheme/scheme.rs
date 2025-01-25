@@ -53,6 +53,18 @@ pub fn cache_scheme(config: &Config, image_path: &str) {
     }
 }
 
+pub fn get_cached_colors(config: &Config, image_path: &str) -> Option<Vec<String>> {
+    if let Some(image_ops) = &config.image_operations {
+        if let Some(rwal_params) = &config.rwal_params {
+            if !Path::new(&get_cache_path(image_ops, rwal_params, image_path)).exists() {
+                cache_scheme(config, image_path);
+            }
+            return Some(run_rwal(image_path, &get_cache_path(image_ops, rwal_params, image_path), rwal_params, image_ops));
+        }
+    }
+    None
+}
+
 fn get_cache_path(image_ops: &ImageOperations, rwal_params: &RwalParams, image_path: &str) -> String {
     format!(
         "{}/{}", 
