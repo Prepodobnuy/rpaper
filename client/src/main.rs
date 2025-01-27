@@ -492,7 +492,7 @@ r#"+-----------------------------+----------------------------------------------
 |                             |     possible values:                                  |
 |                             |     h - order by hue                                  |
 |                             |     s - order by saturation                           |
-|                             |     h - order by brightness                           |
+|                             |     v - order by brightness                           |
 |                             |                                                       |
 +-----------------------------+-------------------------------------------------------+
 | -I <path/to/image>          | sends wallpaper to daemon                             |
