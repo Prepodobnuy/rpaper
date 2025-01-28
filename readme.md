@@ -5,7 +5,7 @@ Rpaper is a program for making it easier to color windows in your cool and moder
 
 Rpaper can split wallpapers into multiple screens, set wallpapers on multiple screens, get a color palette from wallpapers, and apply a color palette to config files.
 
-Rpaper is still **under active development**, so don't be surprised that after the update your wallpaper will burn and the configuration files will be sent to Microsoft servers.
+Rpaper is still **under active development**, so don't be surprised that after the update your pc will burn and configuration files will be sent to Microsoft servers.
 ## Features
 - uniqueness (analogues of the program are bash scripts with pyval which are very long and tedious to write)
 - much faster than bash scripts with pyval
