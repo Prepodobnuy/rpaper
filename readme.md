@@ -21,15 +21,20 @@ Rpaper is still **under active development**, so don't be surprised that after t
 feel free
 ## Todo
 - ~~get rid of pywal~~
-- ~~add arguments~~
-- ~~write sane readme~~
+- ~~client add arguments~~
+- ~~readme~~
+- ~~daemon unix socket listener~~
+- daemon http adress listener
 - video support using [mpvpaper](https://github.com/GhostNaN/mpvpaper)
+- write own wallpaper setter (wayland-client)
 - add diferent image setting modes (fit/fill/crop/etc)
-- implement sane --help
+- ~~implement sane --help for client~~
+- implement sane --help for daemon
+- implement sane logger for daemon
 - write wiki
-- add animated files splitting support (they split without animation)
-- get rid of wallpaper backends (swww/swaybg/etc.)
-- rpaper release
+- add animated files(.gif/.png/.webp) splitting support (currently they split without animation)
+- maybe abandon json format for config
+- release
 ## Thanks to
 - [colorz](https://github.com/metakirby5/colorz) for pallete generator algorithm
 - [osu](https://github.com/ppy/osu) for the idea of ​​calling cache files by their sha256 sum
