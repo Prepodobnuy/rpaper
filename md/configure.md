@@ -1,5 +1,5 @@
 ## I STRONGLY ADVISE YOU TO WAIT FOR THE RELEASE OF THE PROGRAM AS ALL THIS INFORMATION MAY LOSE RELEVANCE AT ANY MOMENT
-## It is already lost relevance xd. Wait for update
+## It is already lost relevance xd. Wait for an update
 ## Configure
 ## config.json file
 ### parameters:
