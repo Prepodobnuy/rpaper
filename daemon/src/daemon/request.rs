@@ -19,8 +19,6 @@ pub struct Request {
     message: String,
 }
 
-
-
 impl Request {
     pub fn new(config: Config, message: String) -> Self {
         Request {
@@ -370,6 +368,16 @@ fn get_rwal_order(tags: &Vec<String>, index: usize) -> Option<OrderBy> {
     None
 }
 
+fn get_image(parts: Vec<&str>) -> Option<String> {
+    if let Some(index) = parts.iter().position(|&s| s == "IMAGE") {
+        if index + 1 < parts.len() {
+            return None;
+        }
+        return Some(parts[index + 1].to_string());
+    }
+    None
+}
+
 pub fn process_info_request (config: Config, request: InfoRequest) -> Option<String> {
     match request {
         InfoRequest::DisplaysRequest => {
@@ -532,15 +540,5 @@ pub fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &
 
     let _ = tx.send(MpscData::ListenerRequest(request.to_string()));
 
-    None
-}
-
-fn get_image(parts: Vec<&str>) -> Option<String> {
-    if let Some(index) = parts.iter().position(|&s| s == "IMAGE") {
-        if index + 1 < parts.len() {
-            return None;
-        }
-        return Some(parts[index + 1].to_string());
-    }
     None
 }

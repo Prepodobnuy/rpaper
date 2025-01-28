@@ -60,7 +60,10 @@ impl Config {
 fn read_value(path: &str) -> Option<Value> {
     if let Ok(mut file) = File::open(path) {
         let mut json_data = String::new();
-        file.read_to_string(&mut json_data).unwrap();
+        
+        if let Err(_) = file.read_to_string(&mut json_data) {
+            return  None;
+        }
 
         if let Ok(data) = serde_json::from_str(&json_data) {
             return data;
@@ -79,12 +82,12 @@ fn read_value_from_string(string: String) -> Option<Value> {
 fn read_displays(value: &Value) -> Option<Vec<Display>> {
     let mut displays = Vec::new();
 
-    for raw_display in value["displays"].as_array().unwrap() {
-        let name = String::from(raw_display["name"].as_str().unwrap());
-        let w = raw_display["w"].as_u64().unwrap() as u32;
-        let h = raw_display["h"].as_u64().unwrap() as u32;
-        let x = raw_display["x"].as_u64().unwrap() as u32;
-        let y = raw_display["y"].as_u64().unwrap() as u32;
+    for raw_display in value["displays"].as_array()? {
+        let name = raw_display["name"].as_str()?.to_string();
+        let w = raw_display["w"].as_u64()? as u32;
+        let h = raw_display["h"].as_u64()? as u32;
+        let x = raw_display["x"].as_u64()? as u32;
+        let y = raw_display["y"].as_u64()? as u32;
 
         displays.push(Display::new(w, h, x, y, name))
     }
@@ -95,7 +98,7 @@ fn read_displays(value: &Value) -> Option<Vec<Display>> {
 fn read_templates(value: &Value) -> Option<Vec<Template>> {
     let mut templates = Vec::new();
 
-    for template_path in value["templates"].as_array().unwrap() {
+    for template_path in value["templates"].as_array()? {
         if let Some(path) = template_path.as_str() {
             templates.push(Template::new(&expand_user(path)));
         }

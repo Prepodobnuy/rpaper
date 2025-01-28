@@ -9,7 +9,7 @@ use sha2::{Sha256, Digest};
 use crate::daemon::daemon::MpscData;
 
 
-pub fn start_config_watcher(config_path: &str, tx: mpsc::Sender<MpscData>) {
+pub fn start_config_watcher(config_path: &str, sender: mpsc::Sender<MpscData>) {
     let config_path = String::from(config_path);
     let _ = thread::Builder::new().name("config watcher thread".to_string()).spawn(move || {
         if let Ok(file_caption) = read_file(&config_path) {
@@ -18,7 +18,7 @@ pub fn start_config_watcher(config_path: &str, tx: mpsc::Sender<MpscData>) {
                 if let Ok(file_caption) = read_file(&config_path) {
                     if file_caption.hash != hash {
                         hash = file_caption.hash;
-                        let _ = tx.send(MpscData::ConfigChanged(file_caption.caption));
+                        let _ = sender.send(MpscData::ConfigChanged(file_caption.caption));
                     }
                 }
                 thread::sleep(Duration::from_millis(100));

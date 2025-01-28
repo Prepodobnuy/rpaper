@@ -39,58 +39,62 @@ pub enum InfoRequest {
 
 pub struct Daemon {
     config: Config,
-    rx: mpsc::Receiver<MpscData>,
-    socket_tx: mpsc::Sender<MpscData>,
+    receiver: mpsc::Receiver<MpscData>,
+    socket_sender: mpsc::Sender<MpscData>,
 }
 
 impl Daemon {
     pub fn new() -> Self {
         let timestamp = unix_timestamp();
-        let (tx, rx) = mpsc::channel();
+        let (sender, receiver) = mpsc::channel();
 
-        // config init
         let mut config = Config::new();
         config.read(&expand_user(CONFIG_PATH));
 
-        let dirs = vec![
-            expand_user(CACHE_DIR),
-            expand_user(WALLPAPERS_DIR),
-            expand_user(COLORS_DIR),
-            expand_user(CONFIG_DIR),
-        ];
+        start_directory_watcher(
+            vec![
+                expand_user(CACHE_DIR),
+                expand_user(WALLPAPERS_DIR),
+                expand_user(COLORS_DIR),
+                expand_user(CONFIG_DIR),
+            ], 
+            sender.clone()
+        );
 
-        // directory watcher
-        start_directory_watcher(&dirs, tx.clone());
-        // config watcher
-        start_config_watcher(&expand_user(CONFIG_PATH), tx.clone());
-        // socket_listener
-        let socket_tx = start_socket_listener(SOCKET_PATH, tx.clone());
+        start_config_watcher(&expand_user(CONFIG_PATH), sender.clone());
+
+        let socket_sender = start_socket_listener(SOCKET_PATH, sender.clone());
 
         info(&format!("Daemon initialized in {}ms.", unix_timestamp() - timestamp));
-        Daemon { config, rx, socket_tx }
+
+        Daemon { config, receiver, socket_sender }
     }
 
     pub fn mainloop(&mut self) {
         while Path::new(SOCKET_PATH).exists() {
-            if let Ok(received_data) = self.rx.try_recv() {
+            if let Ok(received_data) = self.receiver.try_recv() {
                 match received_data {
                     MpscData::ConfigChanged(value) => {
                         self.config.read_from_string(value);
                         info("Config changed.");
                     },
-                    MpscData::ErrorCreatingDirectory => { err("Unable to create needed directory."); },
-                    MpscData::SuccesCreatingDirectory => { info("Needed directory created."); },
+                    MpscData::ErrorCreatingDirectory => { 
+                        err("Unable to create needed directory."); 
+                    },
+                    MpscData::SuccesCreatingDirectory => { 
+                        info("Needed directory created."); 
+                    },
                     MpscData::ListenerRequest(message) => {
                         log("Received wallpaper request.");
                         let mut request = Request::new(self.config.clone(), message);
                         request.process();
                         std::mem::drop(request);
                     },
-                    MpscData::InfoRequest(val) => {
-                        if let Some(respond) = process_info_request(self.config.clone(), val) {
-                            let _ = self.socket_tx.send(MpscData::ListenerRespond(respond));
+                    MpscData::InfoRequest(request) => {
+                        if let Some(respond) = process_info_request(self.config.clone(), request) {
+                            let _ = self.socket_sender.send(MpscData::ListenerRespond(respond));
                         } else {
-                            let _ = self.socket_tx.send(MpscData::ListenerRespond("".to_string()));
+                            let _ = self.socket_sender.send(MpscData::ListenerRespond("{}".to_string()));
                         }
                     },
                     _ => {},

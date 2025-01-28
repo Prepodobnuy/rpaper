@@ -8,9 +8,9 @@ use crate::logger::logger::{err, info};
 use super::daemon::MpscData;
 use super::request::handle_request;
 
-pub fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> mpsc::Sender<MpscData> {
+pub fn start_socket_listener(socket_path: &str, sender: mpsc::Sender<MpscData>) -> mpsc::Sender<MpscData> {
     info(&format!("Monitoring socket file at {}.", socket_path));
-    let (listener_tx, listener_rx): (Sender<MpscData>, Receiver<MpscData>) = mpsc::channel();
+    let (listener_sender, listener_receiver): (Sender<MpscData>, Receiver<MpscData>) = mpsc::channel();
     let listener = UnixListener::bind(socket_path).unwrap_or_else(|_| panic!("Unable to create socket"));
 
     thread::spawn(move || {
@@ -20,10 +20,11 @@ pub fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> m
                     let mut reader = BufReader::new(&stream);
                     let mut buffer = String::new();
 
-                    reader.read_line(&mut buffer).unwrap();
+                    if let Err(_) = reader.read_line(&mut buffer) { continue; }
+
                     let request = buffer.trim().to_string();
 
-                    if let Some(response) = handle_request(&request, &tx, &listener_rx) {
+                    if let Some(response) = handle_request(&request, &sender, &listener_receiver) {
                         if let Err(e) = stream.write_all(format!("{}\n", response).as_bytes()) {
                             err(&format!("Failed to write to socket: {}", e));
                         }
@@ -36,5 +37,5 @@ pub fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> m
         }
     });
 
-    listener_tx
+    listener_sender
 }

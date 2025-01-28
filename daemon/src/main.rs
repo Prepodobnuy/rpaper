@@ -42,8 +42,7 @@ pub fn expand_user(path: &str) -> String {
         return PathBuf::from(home_dir).join(stripped_path).into_os_string().into_string().unwrap();
     }
 
-    eprintln!("HOME environment variable is not set.");
-    std::process::exit(1);
+    panic!("HOME environment variable is not set.");
 }
 
 pub fn get_image_name(input: &str) -> String {
