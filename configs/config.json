@@ -27,10 +27,10 @@
     "~/.config/rpaper/rpaper_templates/rofi-switcher.template"
   ],
   "impg": {
-    "contrast": -20,
-    "brightness": -25,
+    "contrast": 0,
+    "brightness": 0,
     "huerotate": 0,
-    "blur": 15.0,
+    "blur": 0.0,
     "invert": false,
     "flip_h": false,
     "flip_v": false
