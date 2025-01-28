@@ -1,20 +1,41 @@
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc;
 use std::thread;
-use std::os::unix::net::UnixListener;
-use std::io::{self, BufRead, BufReader, Read, Write};
 use std::time::Duration;
-use std::fs::{self, File};
 use std::path::Path;
-use sha2::{Sha256, Digest};
 
-use crate::colorscheme::scheme::get_cached_colors;
 use crate::logger::logger::{err, info, log};
-use crate::wallpaper::display::{cache_wallpaper, get_cached_image_names, get_cached_image_paths, WCacheInfo};
-use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, COLORS_PATH, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
+use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
 
-use super::config::JsonString;
+use super::config_watcher::start_config_watcher;
+use super::directory_watcher::start_directory_watcher;
+use super::request::process_info_request;
+use super::socket_listener::start_socket_listener;
+
+
+#[derive(Clone)]
+pub enum MpscData {
+    ConfigChanged(String),
+    ErrorCreatingDirectory,
+    SuccesCreatingDirectory,
+    ListenerRequest(String),
+    ListenerRespond(String),
+    InfoRequest(InfoRequest),
+}
+
+#[derive(Clone)]
+pub enum InfoRequest {
+    DisplaysRequest,
+    TemplatesRequest,
+    CurrentColorSchemeRequest,
+    ImageOpsRequest,
+    RwalParamsRequest,
+    ConfigRequest,
+    WallpaperCacheRequest(String),
+    ColoschemeCacheRequest(String),
+    EmptyRequest,
+}
 
 pub struct Daemon {
     config: Config,
@@ -50,7 +71,6 @@ impl Daemon {
     }
 
     pub fn mainloop(&mut self) {
-        info("Daemon started.");
         while Path::new(SOCKET_PATH).exists() {
             if let Ok(received_data) = self.rx.try_recv() {
                 match received_data {
@@ -79,313 +99,4 @@ impl Daemon {
             thread::sleep(Duration::from_millis(10));
         }
     }
-}
-
-#[derive(Clone)]
-pub enum MpscData {
-    ConfigChanged(String),
-    ErrorCreatingDirectory,
-    SuccesCreatingDirectory,
-    ListenerRequest(String),
-    ListenerRespond(String),
-    InfoRequest(InfoRequest),
-}
-
-#[derive(Clone)]
-pub enum InfoRequest {
-    DisplaysRequest,
-    TemplatesRequest,
-    CurrentColorSchemeRequest,
-    ImageOpsRequest,
-    RwalParamsRequest,
-    ConfigRequest,
-    WallpaperCacheRequest(String),
-    ColoschemeCacheRequest(String),
-    EmptyRequest,
-}
-
-fn start_socket_listener(socket_path: &str, tx: mpsc::Sender<MpscData>) -> mpsc::Sender<MpscData> {
-    let (listener_tx, listener_rx): (Sender<MpscData>, Receiver<MpscData>) = mpsc::channel();
-    let listener = UnixListener::bind(socket_path).unwrap_or_else(|_| panic!("Unable to create socket"));
-
-    thread::spawn(move || {
-        for stream in listener.incoming() {
-            match stream {
-                Ok(mut stream) => {
-                    let mut reader = BufReader::new(&stream);
-                    let mut buffer = String::new();
-
-                    reader.read_line(&mut buffer).unwrap();
-                    let request = buffer.trim().to_string();
-
-                    if let Some(response) = handle_request(&request, &tx, &listener_rx) {
-                        if let Err(e) = stream.write_all(format!("{}\n", response).as_bytes()) {
-                            err(&format!("Failed to write to socket: {}", e));
-                        }
-                    }
-                }
-                Err(e) => {
-                    err(&format!("Error: {}", e));
-                }
-            }
-        }
-    });
-
-    listener_tx
-}
-
-fn process_info_request (config: Config, request: InfoRequest) -> Option<String> {
-    match request {
-        InfoRequest::DisplaysRequest => {
-            log("Displays request received.");
-            if let Some(displays) = config.displays {
-                Some(displays.json())
-            } else {
-                None
-            }
-        },
-        InfoRequest::TemplatesRequest => {
-            log("Templates request received.");
-            if let Some(templates) = config.templates {
-                Some(templates.json())
-            } else {
-                None
-            }
-        },
-        InfoRequest::CurrentColorSchemeRequest => {
-            log("Current colorscheme request received.");
-            if !Path::new(&expand_user(COLORS_PATH)).exists() {
-                return None;
-            }
-            if let Ok(data) = fs::read_to_string(&expand_user(COLORS_PATH)) {
-                return Some(format!(
-                    "[{}]",
-                    data.split("\n")
-                        .into_iter()
-                        .map(|x| {
-                            format!("\"{x}\"")
-                        })
-                        .collect::<Vec<String>>()
-                        .join(",")
-                ));
-            }
-            None
-        }
-        InfoRequest::ImageOpsRequest => {
-            log("Image operations request received.");
-            if let Some(image_ops) = config.image_operations {
-                Some(image_ops.json())
-            } else {
-                None
-            }
-        },
-        InfoRequest::RwalParamsRequest => {
-            log("Rwal params request received.");
-            if let Some(rwal_params) = config.rwal_params {
-                Some(rwal_params.json())
-            } else {
-                None
-            }
-        },
-        InfoRequest::ConfigRequest => {
-            log("Config request received.");
-            Some(config.json())
-        },
-        InfoRequest::WallpaperCacheRequest(val) => {
-            log("Image cache info request received.");
-            if let Some(img_ops) = &config.image_operations {
-                if let Some(displays) = &config.displays {
-                    let cached_image_paths = get_cached_image_paths(
-                        &get_cached_image_names(&displays, &img_ops, &val),
-                        WALLPAPERS_DIR,
-                    );
-
-                    for cache_path in &cached_image_paths {
-                        if !Path::new(&expand_user(cache_path)).exists() {
-                            cache_wallpaper(&config, &val);
-                            break;
-                        }
-                    }
-
-                    let mut w_caches = Vec::new(); 
-                    for (i, path) in cached_image_paths.into_iter().enumerate() {
-                        w_caches.push(WCacheInfo::new(&displays[i].name(), &path));
-                    }
-
-                    Some(format!(
-                        "[{}]",
-                        w_caches.into_iter()
-                            .map(|x| {
-                                x.json()
-                            })
-                            .collect::<Vec<String>>()
-                            .join(",")
-                    ))
-
-                }
-                else {None}
-            }
-            else {None}
-        },
-        InfoRequest::ColoschemeCacheRequest(val) => {
-            log("Colorscheme cache info request received.");
-            if let Some(colors) = get_cached_colors(&config, &val) {
-                return Some(format!(
-                    "[{}]",
-                    colors.into_iter()
-                        .map(|x| {
-                            format!("\"{x}\"")
-                        })
-                        .collect::<Vec<String>>()
-                        .join(",")
-                ));
-            }
-            None
-        }
-        _ => {None}
-    }
-}
-
-fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Receiver<MpscData>) -> Option<String> {
-    let info_patterns = [
-        "GET_DISPLAYS",
-        "GET_TEMPLATES",
-        "GET_SCHEME",
-        "GET_IMAGE_OPS",
-        "GET_RWAL_PARAMS",
-        "GET_CONFIG",
-        "GET_W_CACHE",
-        "GET_C_CACHE",
-    ];
-
-    for pat in info_patterns {
-        if request.contains(pat) {
-            let request = match pat {
-                "GET_DISPLAYS"    => {MpscData::InfoRequest(InfoRequest::DisplaysRequest)},
-                "GET_TEMPLATES"   => {MpscData::InfoRequest(InfoRequest::TemplatesRequest)},
-                "GET_SCHEME"      => {MpscData::InfoRequest(InfoRequest::CurrentColorSchemeRequest)}
-                "GET_IMAGE_OPS"   => {MpscData::InfoRequest(InfoRequest::ImageOpsRequest)},
-                "GET_RWAL_PARAMS" => {MpscData::InfoRequest(InfoRequest::RwalParamsRequest)},
-                "GET_CONFIG"      => {MpscData::InfoRequest(InfoRequest::ConfigRequest)},
-                "GET_W_CACHE"     => {
-                    match request.contains("IMAGE") {
-                        true => {
-                            let parts: Vec<&str> = request.split_whitespace().collect();
-                            let image_index = parts.iter().position(|&s| s == "IMAGE");
-
-                            match image_index {
-                                Some(index) => {
-                                    if index + 1 < parts.len() {
-                                        MpscData::InfoRequest(InfoRequest::WallpaperCacheRequest(parts[index + 1].to_string()))
-                                    } else {
-                                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
-                                    }
-                                },
-                                None => {
-                                    MpscData::InfoRequest(InfoRequest::EmptyRequest)
-                                }
-                            }
-                        },
-                        false => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
-                    }
-                },
-                "GET_C_CACHE"     => {
-                    match request.contains("IMAGE") {
-                        true => {
-                            let parts: Vec<&str> = request.split_whitespace().collect();
-                            let image_index = parts.iter().position(|&s| s == "IMAGE");
-
-                            match image_index {
-                                Some(index) => {
-                                    if index + 1 < parts.len() {
-                                        MpscData::InfoRequest(InfoRequest::ColoschemeCacheRequest(parts[index + 1].to_string()))
-                                    } else {
-                                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
-                                    }
-                                },
-                                None => {
-                                    MpscData::InfoRequest(InfoRequest::EmptyRequest)
-                                }
-                            }
-                        },
-                        false => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
-                    }
-                },
-                _ => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
-            };
-            if tx.send(request.clone()).is_ok() {
-                if let Ok(value) = listener_rx.recv_timeout(Duration::from_millis(10000)) {
-                    if let MpscData::ListenerRespond(value) = value {
-                        return Some(value);
-                    }
-                }
-            }
-        }
-    }
-
-    let _ = tx.send(MpscData::ListenerRequest(request.to_string()));
-
-    None
-}
-
-fn start_directory_watcher(directories: &Vec<String>, tx: mpsc::Sender<MpscData>) {
-    let directories = directories.clone();
-    let _ = thread::Builder::new().name("directory watcher thread".to_string()).spawn(move || {
-        loop {
-            for dir in directories.iter() {
-                let path = Path::new(&dir);
-                if !path.exists() {
-                    match fs::create_dir(path) {
-                        Ok(_) => {
-                            let _ = tx.send(MpscData::SuccesCreatingDirectory);
-                        },
-                        Err(_) => {
-                            let _ = tx.send(MpscData::ErrorCreatingDirectory);
-                        },
-                    }
-                }
-            }            
-            thread::sleep(Duration::from_millis(100));
-        }
-    });
-}
-
-fn start_config_watcher(config_path: &str, tx: mpsc::Sender<MpscData>) {
-    let config_path = String::from(config_path);
-    let _ = thread::Builder::new().name("config watcher thread".to_string()).spawn(move || {
-        if let Ok(file_caption) = read_file(&config_path) {
-            let mut hash = file_caption.hash;
-            loop {
-                if let Ok(file_caption) = read_file(&config_path) {
-                    if file_caption.hash != hash {
-                        hash = file_caption.hash;
-                        let _ = tx.send(MpscData::ConfigChanged(file_caption.caption));
-                    }
-                }
-                thread::sleep(Duration::from_millis(100));
-            }
-        }
-        panic!("CANNOT FIND CONFIG FILE AT {}", config_path)
-    });
-}
-
-struct FileCaption {
-    hash: String,
-    caption: String,
-}
-
-fn read_file(path: &str) -> Result<FileCaption, io::Error> {
-    let mut hasher = Sha256::new();
-    let mut file = File::open(path)?;
-    let mut buffer = Vec::new();
-
-    file.read_to_end(&mut buffer)?;
-    hasher.update(&buffer);
-
-    let hash = hex::encode(hasher.finalize());
-    let caption = String::from_utf8(buffer).map_err(|e| {
-        io::Error::new(io::ErrorKind::InvalidData, e)
-    })?;
-
-    Ok(FileCaption { hash, caption })
 }

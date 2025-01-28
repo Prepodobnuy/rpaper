@@ -1,13 +1,15 @@
-use std::thread;
+use std::path::Path;
+use std::{fs, thread};
 
 use crate::colorscheme::rwal::{OrderBy, RwalParams};
-use crate::colorscheme::scheme::{cache_scheme, set_scheme};
+use crate::colorscheme::scheme::{cache_scheme, get_cached_colors, set_scheme};
 use crate::logger::logger::log;
-use crate::unix_timestamp;
-use crate::wallpaper::display::{cache_wallpaper, set_wallpaper, Display, ImageOperations};
+use crate::{expand_user, unix_timestamp, COLORS_PATH, WALLPAPERS_DIR};
+use crate::wallpaper::display::{cache_wallpaper, get_cached_image_names, get_cached_image_paths, set_wallpaper, Display, ImageOperations, WCacheInfo};
 use crate::colorscheme::template::Template;
 
-use super::config::Config;
+use super::config::{Config, JsonString};
+use super::daemon::InfoRequest;
 
 
 pub struct Request {
@@ -378,4 +380,117 @@ fn get_rwal_order(tags: &Vec<String>, index: usize) -> Option<OrderBy> {
         } 
     }
     None
+}
+
+
+pub fn process_info_request (config: Config, request: InfoRequest) -> Option<String> {
+    match request {
+        InfoRequest::DisplaysRequest => {
+            log("Displays request received.");
+            if let Some(displays) = config.displays {
+                Some(displays.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::TemplatesRequest => {
+            log("Templates request received.");
+            if let Some(templates) = config.templates {
+                Some(templates.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::CurrentColorSchemeRequest => {
+            log("Current colorscheme request received.");
+            if !Path::new(&expand_user(COLORS_PATH)).exists() {
+                return None;
+            }
+            if let Ok(data) = fs::read_to_string(&expand_user(COLORS_PATH)) {
+                return Some(format!(
+                    "[{}]",
+                    data.split("\n")
+                        .into_iter()
+                        .map(|x| {
+                            format!("\"{x}\"")
+                        })
+                        .collect::<Vec<String>>()
+                        .join(",")
+                ));
+            }
+            None
+        }
+        InfoRequest::ImageOpsRequest => {
+            log("Image operations request received.");
+            if let Some(image_ops) = config.image_operations {
+                Some(image_ops.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::RwalParamsRequest => {
+            log("Rwal params request received.");
+            if let Some(rwal_params) = config.rwal_params {
+                Some(rwal_params.json())
+            } else {
+                None
+            }
+        },
+        InfoRequest::ConfigRequest => {
+            log("Config request received.");
+            Some(config.json())
+        },
+        InfoRequest::WallpaperCacheRequest(val) => {
+            log("Image cache info request received.");
+            if let Some(img_ops) = &config.image_operations {
+                if let Some(displays) = &config.displays {
+                    let cached_image_paths = get_cached_image_paths(
+                        &get_cached_image_names(&displays, &img_ops, &val),
+                        WALLPAPERS_DIR,
+                    );
+
+                    for cache_path in &cached_image_paths {
+                        if !Path::new(&expand_user(cache_path)).exists() {
+                            cache_wallpaper(&config, &val);
+                            break;
+                        }
+                    }
+
+                    let mut w_caches = Vec::new(); 
+                    for (i, path) in cached_image_paths.into_iter().enumerate() {
+                        w_caches.push(WCacheInfo::new(&displays[i].name(), &path));
+                    }
+
+                    Some(format!(
+                        "[{}]",
+                        w_caches.into_iter()
+                            .map(|x| {
+                                x.json()
+                            })
+                            .collect::<Vec<String>>()
+                            .join(",")
+                    ))
+
+                }
+                else {None}
+            }
+            else {None}
+        },
+        InfoRequest::ColoschemeCacheRequest(val) => {
+            log("Colorscheme cache info request received.");
+            if let Some(colors) = get_cached_colors(&config, &val) {
+                return Some(format!(
+                    "[{}]",
+                    colors.into_iter()
+                        .map(|x| {
+                            format!("\"{x}\"")
+                        })
+                        .collect::<Vec<String>>()
+                        .join(",")
+                ));
+            }
+            None
+        }
+        _ => {None}
+    }
 }
