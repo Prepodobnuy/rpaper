@@ -1,6 +1,7 @@
 use std::io::Write;
 use std::path::Path;
 use std::fs::{self, File};
+use std::str::FromStr;
 
 use crate::{expand_user, spawn, system};
 
@@ -9,12 +10,26 @@ pub struct Template {
     pub path: String,
 }
 
+impl FromStr for Template {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if Path::new(&expand_user(s)).exists() {
+            return Ok(Self {
+                path: s.to_string(),
+            });
+        }
+        Err(format!("Path {s} does not exist."))
+    }
+}
+
 enum TemplatePart {
     Params,
     Colors,
     Caption,
     None,
 }
+
 
 impl Template {
     pub fn new(path: &str) -> Self {

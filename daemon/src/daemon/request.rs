@@ -1,4 +1,6 @@
 use std::path::Path;
+use std::sync::mpsc::{self, Receiver};
+use std::time::Duration;
 use std::{fs, thread};
 
 use crate::colorscheme::rwal::{OrderBy, RwalParams};
@@ -9,7 +11,7 @@ use crate::wallpaper::display::{cache_wallpaper, get_cached_image_names, get_cac
 use crate::colorscheme::template::Template;
 
 use super::config::{Config, JsonString};
-use super::daemon::InfoRequest;
+use super::daemon::{InfoRequest, MpscData};
 
 
 pub struct Request {
@@ -254,8 +256,8 @@ impl RequestTags {
                 "CONFIG_INVERT" =>     {config_invert     = Some(true)},
                 "CONFIG_FLIP_H" =>     {config_flip_h     = Some(true)},
                 "CONFIG_FLIP_V" =>     {config_flip_v     = Some(true)},
-                "CONFIG_DISPLAYS" =>   {config_displays   = get_displays(&tags, i)},
-                "CONFIG_TEMPLATES" =>  {config_templates  = get_templates(&tags, i)},
+                "CONFIG_DISPLAYS" =>   {config_displays   = get_array::<Display>(&tags, i)},
+                "CONFIG_TEMPLATES" =>  {config_templates  = get_array::<Template>(&tags, i)},
                 "CONFIG_RESIZE_ALG" => {config_resize_alg = get_value::<String>(&tags, i)},
                 "RWAL_THUMB" =>        {rwal_thumb        = get_thumb(&tags, i)},
                 "RWAL_CLAMP" =>        {rwal_clamp        = get_clamp(&tags, i)},
@@ -302,31 +304,17 @@ fn get_value<T: std::str::FromStr>(tags: &Vec<String>, index: usize) -> Option<T
     None
 }
 
-fn get_displays(tags: &Vec<String>, index: usize) -> Option<Vec<Display>> {
+fn get_array<T: std::str::FromStr>(tags: &Vec<String>, index: usize) -> Option<Vec<T>> {
     if index + 1 < tags.len() {
         if let Some(raw_displays) = get_value::<String>(tags, index) {
-            let mut displays: Vec<Display> = Vec::new();
+            let mut displays: Vec<T> = Vec::new();
             raw_displays.split(",")
                 .for_each(|raw_display| {
-                    if let Ok(display) = Display::from_string(&raw_display) {
+                    if let Ok(display) = T::from_str(&raw_display) {
                         displays.push(display)
                     }
                 });
             return Some(displays);
-        }
-    }
-    None
-}
-
-fn get_templates(tags: &Vec<String>, index: usize) -> Option<Vec<Template>> {
-    if index + 1 < tags.len() {
-        if let Some(raw_templates) = get_value::<String>(tags, index) {
-            let mut templates: Vec<Template> = Vec::new();
-            raw_templates.split(",")
-                .for_each(|raw_template| {
-                    templates.push(Template::new(raw_template))
-                });
-            return Some(templates);
         }
     }
     None
@@ -381,7 +369,6 @@ fn get_rwal_order(tags: &Vec<String>, index: usize) -> Option<OrderBy> {
     }
     None
 }
-
 
 pub fn process_info_request (config: Config, request: InfoRequest) -> Option<String> {
     match request {
@@ -493,4 +480,67 @@ pub fn process_info_request (config: Config, request: InfoRequest) -> Option<Str
         }
         _ => {None}
     }
+}
+
+pub fn handle_request(request: &str, tx: &mpsc::Sender<MpscData>, listener_rx: &Receiver<MpscData>) -> Option<String> {
+    let info_patterns = [
+        "GET_DISPLAYS",
+        "GET_TEMPLATES",
+        "GET_SCHEME",
+        "GET_IMAGE_OPS",
+        "GET_RWAL_PARAMS",
+        "GET_CONFIG",
+        "GET_W_CACHE",
+        "GET_C_CACHE",
+    ];
+
+    for pat in info_patterns {
+        if request.contains(pat) {
+            let request = match pat {
+                "GET_DISPLAYS"    => {MpscData::InfoRequest(InfoRequest::DisplaysRequest)},
+                "GET_TEMPLATES"   => {MpscData::InfoRequest(InfoRequest::TemplatesRequest)},
+                "GET_SCHEME"      => {MpscData::InfoRequest(InfoRequest::CurrentColorSchemeRequest)}
+                "GET_IMAGE_OPS"   => {MpscData::InfoRequest(InfoRequest::ImageOpsRequest)},
+                "GET_RWAL_PARAMS" => {MpscData::InfoRequest(InfoRequest::RwalParamsRequest)},
+                "GET_CONFIG"      => {MpscData::InfoRequest(InfoRequest::ConfigRequest)},
+                "GET_W_CACHE"     => {
+                    if let Some(val) = get_image(request.split_whitespace().collect()) {
+                        MpscData::InfoRequest(InfoRequest::WallpaperCacheRequest(val))
+                    } else {
+                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
+                    }
+                },
+                "GET_C_CACHE"     => {
+                    if let Some(val) = get_image(request.split_whitespace().collect()) {
+                        MpscData::InfoRequest(InfoRequest::ColoschemeCacheRequest(val))
+                    } else {
+                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
+                    }
+                },
+                _ => {MpscData::InfoRequest(InfoRequest::EmptyRequest)},
+            };
+
+            if tx.send(request.clone()).is_ok() {
+                if let Ok(value) = listener_rx.recv_timeout(Duration::from_millis(10000)) {
+                    if let MpscData::ListenerRespond(value) = value {
+                        return Some(value);
+                    }
+                }
+            }
+        }
+    }
+
+    let _ = tx.send(MpscData::ListenerRequest(request.to_string()));
+
+    None
+}
+
+fn get_image(parts: Vec<&str>) -> Option<String> {
+    if let Some(index) = parts.iter().position(|&s| s == "IMAGE") {
+        if index + 1 < parts.len() {
+            return None;
+        }
+        return Some(parts[index + 1].to_string());
+    }
+    None
 }

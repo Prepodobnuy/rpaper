@@ -1,5 +1,6 @@
 use std::thread;
 use std::path::Path;
+use std::str::FromStr;
 
 use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
 use image::{self, DynamicImage};
@@ -15,6 +16,43 @@ pub struct Display {
     x: u32,
     y: u32,
     name: String,
+}
+
+impl FromStr for Display {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut name: String = String::new();
+        let mut w: u32 = 0;
+        let mut h: u32 = 0;
+        let mut x: u32 = 0;
+        let mut y: u32 = 0;
+
+        if s.split(":").collect::<Vec<_>>().len() != 5 {
+            return Err(String::from("Unable to parse string"));
+        }
+
+        s.split(":")
+            .enumerate()
+            .for_each(|(i, param)| {
+                match i {
+                    0 => {name = String::from(param)},
+                    1 => {w = param.parse().unwrap_or(0)},
+                    2 => {h = param.parse().unwrap_or(0)},
+                    3 => {x = param.parse().unwrap_or(0)},
+                    4 => {y = param.parse().unwrap_or(0)},
+                    _ => {},
+                }
+            });
+
+        Ok(Self{
+            w,
+            h,
+            x,
+            y,
+            name,
+        })
+    }
 }
 
 impl Display {
@@ -39,44 +77,6 @@ impl Display {
     pub fn height(&self) -> u32 {self.h}
     pub fn x(&self) -> u32 {self.x}
     pub fn y(&self) -> u32 {self.y}
-
-    pub fn from_string(string: &str) -> Result<Display, String> {
-        // create Display from string
-        // Example:
-        // input: HDMI-A-1:1920:1080:0:0
-        // output: Display {1920, 1080, 0, 0, HDMI-A-1}
-        
-        let mut name: String = String::new();
-        let mut w: u32 = 0;
-        let mut h: u32 = 0;
-        let mut x: u32 = 0;
-        let mut y: u32 = 0;
-
-        if string.split(":").collect::<Vec<_>>().len() != 5 {
-            return Err(String::from("Unable to parse string"));
-        }
-
-        string.split(":")
-            .enumerate()
-            .for_each(|(i, param)| {
-                match i {
-                    0 => {name = String::from(param)},
-                    1 => {w = param.parse().unwrap_or(0)},
-                    2 => {h = param.parse().unwrap_or(0)},
-                    3 => {x = param.parse().unwrap_or(0)},
-                    4 => {y = param.parse().unwrap_or(0)},
-                    _ => {},
-                }
-            });
-
-        Ok(Display{
-            w,
-            h,
-            x,
-            y,
-            name,
-        })
-    }
 }
 
 fn displays_max_width(displays: &Vec<Display>) -> u32 {
