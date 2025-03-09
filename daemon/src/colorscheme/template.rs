@@ -160,7 +160,6 @@ impl Template {
 
         let paste_path = expand_user(&collect_command(&params_caption, "Path(", ")"));
         let color_format = collect_command(&params_caption, "Format(", ")");
-
         let colors = collect_colors(&colors_caption);
 
         let before_commands = collect_commands(&params_caption, "ExecBefore(", ")");
@@ -207,7 +206,7 @@ impl Template {
                         &hex_colors[color.index as usize],
                     );
                     let mut darker = ColorValue::from_hex(
-                        &color.template.replace("{br}", &format!("LR{i}")), 
+                        &color.template.replace("{br}", &format!("DR{i}")), 
                         &hex_colors[color.index as usize],
                     );
 
@@ -275,7 +274,7 @@ fn apply_include(caption: Vec<String>) -> Vec<String> {
         }
 
         if let Ok(caption) = fs::read_to_string(expand_user(&trim_line[8..trim_line.len() - 1])) {
-            res.extend(apply_include(caption.lines().map(|l| {l.to_string()}).collect()));
+            res.extend(caption.lines().map(|l| {l.to_string()}).collect::<Vec<String>>());
         }
     }
 
@@ -324,7 +323,7 @@ fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
     for command in collect_commands(caption, "Color(", ")") {
         let arguments: Vec<&str> = command.split(",").collect();
         
-        if !arguments.len() > 1 {continue}
+        if !arguments.len() < 2 {continue}
     
         let template = arguments[0].trim().to_string();
         let index = arguments[1].trim().parse::<u8>().unwrap_or(0).clamp(0, 15);
