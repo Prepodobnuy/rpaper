@@ -326,16 +326,16 @@ fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
         
         if !arguments.len() > 1 {continue}
     
-        let template = arguments[0].to_string();
-        let index = arguments[1].parse::<u8>().unwrap_or(0).clamp(0, 15);
+        let template = arguments[0].trim().to_string();
+        let index = arguments[1].trim().parse::<u8>().unwrap_or(0).clamp(0, 15);
         let mut brightness = 0;
         let mut invert = false;
 
         if arguments.len() > 2 {
-            brightness = arguments[2].parse().unwrap_or(0);
+            brightness = arguments[2].trim().parse().unwrap_or(0);
         }
         if arguments.len() > 3 {
-            invert = matches!(arguments[3], "1" | "true" | "True");
+            invert = matches!(arguments[3].trim(), "1" | "true" | "True");
         }
 
         res.push(Color::new(
