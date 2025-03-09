@@ -292,7 +292,7 @@ fn apply_include(caption: Vec<String>) -> Vec<String> {
         }
 
         if let Ok(caption) = fs::read_to_string(expand_user(&trim_line[8..trim_line.len() - 1])) {
-            res.extend(caption.lines().map(|l| {l.to_string()}).collect::<Vec<String>>());
+            res.extend(apply_include(caption.lines().map(|l| {l.to_string()}).collect::<Vec<String>>()));
         }
     }
 
@@ -367,14 +367,13 @@ fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
     for command in collect_commands(caption, "HEX(", ")") {
         let arguments: Vec<&str> = command.split(",").collect();
 
-        if !arguments.len() != 2 {continue}
+        if arguments.len() != 2 {continue}
 
         let template = arguments[0].trim().to_string();
         let index: u8 = 0;
         let hex = arguments[1].trim().to_string();
         let brightness = 0;
         let invert = false;
-
 
         res.push(Color::new(
             template,
