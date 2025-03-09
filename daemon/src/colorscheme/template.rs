@@ -17,15 +17,17 @@ struct Color {
     index: u8,
     brightness: i32,
     invert: bool,
+    hex: Option<String>
 }
 
 impl Color {
-    fn new(template: String, index: u8, brightness: i32, invert: bool) -> Self {
+    fn new(template: String, index: u8, brightness: i32, invert: bool, hex: Option<String>) -> Self {
         Color {
             template,
             index,
             brightness,
             invert,
+            hex,
         }
     }
 }
@@ -64,7 +66,7 @@ impl ColorValue {
         self.b = (self.b as f32 * brightness_diff).clamp(0.0, 255.0) as u8;
     }
 
-    fn inverse(&mut self) {
+    fn invert(&mut self) {
         self.r = 255 - self.r;
         self.g = 255 - self.g;
         self.b = 255 - self.b;
@@ -87,6 +89,13 @@ impl ColorValue {
 
     fn rgb_to_hex(r: u8, g: u8, b: u8) -> String {
         format!("{:02X}{:02X}{:02X}", r, g, b)
+    }
+
+    fn set_value_from_hex(&mut self, hex: &str) {
+        let (r, g, b) = ColorValue::hex_to_rgb(hex);
+        self.r = r;
+        self.g = g;
+        self.b = b;
     }
 
     fn hex(& self) -> String {
@@ -210,9 +219,14 @@ impl Template {
                         &hex_colors[color.index as usize],
                     );
 
+                    if let Some(hex) = &color.hex {
+                        lighter.set_value_from_hex(hex);
+                        darker.set_value_from_hex(hex);
+                    }
+
                     if color.invert {
-                        lighter.inverse();
-                        darker.inverse();
+                        lighter.invert();
+                        darker.invert();
                     }
 
                     lighter.add_brightness((i * 10) + color.brightness);
@@ -227,7 +241,11 @@ impl Template {
                 &hex_colors[color.index as usize],
             );
 
-            if color.invert {color_value.inverse()}
+            if let Some(hex) = &color.hex {
+                color_value.set_value_from_hex(hex);
+            }
+
+            if color.invert {color_value.invert()}
 
             color_value.add_brightness(color.brightness);
 
@@ -342,6 +360,28 @@ fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
             index,
             brightness,
             invert,
+            None,
+        ))
+    }
+
+    for command in collect_commands(caption, "HEX(", ")") {
+        let arguments: Vec<&str> = command.split(",").collect();
+
+        if !arguments.len() != 2 {continue}
+
+        let template = arguments[0].trim().to_string();
+        let index: u8 = 0;
+        let hex = arguments[1].trim().to_string();
+        let brightness = 0;
+        let invert = false;
+
+
+        res.push(Color::new(
+            template,
+            index,
+            brightness,
+            invert,
+            Some(hex),
         ))
     }
 
