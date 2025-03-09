@@ -33,6 +33,10 @@ pub fn unix_timestamp() -> u128 {
 }
 
 pub fn expand_user(path: &str) -> String {
+    if path.is_empty() {
+        return path.to_string();
+    }
+    
     if &path[0..1] != "~" {
         return String::from(path);
     }

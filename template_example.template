@@ -1,39 +1,47 @@
-# Rpaper template file is needed for pasting colors in your configs
-# Rtemplate receives colors, wraps them into a format param 
-# and pastes them into config template ([caption] section)
-#
-# syntax is similar to toml files
-# but the only readable information is located in the param section
+[params]
+# Path command is needed
+# to figure out path to paste template into
+Path(~/path/to/some/config/file.format)
 
-# Param section
-[param]
+# replaces itself with file contaiment
+Include(/path/to/file)
 
-# path param is a path to config file
-path:~/path/to/some/config/file.format
+# Format command is needed 
+# to figure out template to paste colors into
+# "#{HEX} ({R}, {G}, {B})"
+# colors would be like that -> "#000000 (0, 0, 0)"
+# there might be many format commands
+# but only latest is gonna be applyed
+Format({HEX})
 
-# format param is a template that will be filled with color
-# format has 'inserts' to paste different color representations
 # {HEX} => hex color
 # {R} => red color
 # {G} => green color
 # {B} => blue color
-format:"#{HEX} ({R}, {G}, {B})"
 
-# before param is a command which is executed before pasting colors in a template
-# IMPORTANT: rpaper waits for the 'before command' to be executed before the colors are filled
-before:echo "wow im in a rpaper template"
+ExecBefore(echo "Command to execute before colors paste")
+ExecBefore(echo "There might be many before commands")
+ExecBefore(echo "Rpaper waits until they complete before applying colors")
+ExecBefore(echo "So dont do something like this")
+ExecBefore(sleep 112481244)
 
-# after param is a command which is executed after pasting colors in a template
-# rpaper does not wait for a 'after command' to be executed
-after:echo "me too :p"
+ExecAfter(echo "Command to execute after colors paste")
+ExecAfter(echo "There might be many after commands")
+ExecAfter(echo "Rpaper dont wait until they complete")
+ExecAfter(echo "So you can do something like this")
+ExecAfter(sleep 12512512512)
 
-#Colors section
-#Syntax: VARIABLE_NAME:COLOR_ID:ADDITIONAL_LIGHTNESS:INVERSED(0/1)
 [colors]
-colorvariablename:0:10:0
+Include(/path/to/file)
+Color(defaultColor{br}, 0, 10, 0)
+Color(defaultColor{br}, 0, -10, false)
+Color(defaultColor{br}, 0, 10, 1)
+Color(defaultColor{br}, 0, -10, true)
+Color(sex, 0, 10)
+Color(sex, 0)
 
-# Caption section
-[caption]
+# config section
+[config]
 // some important config file here
 fn main() {
     println!("colorvariablename");

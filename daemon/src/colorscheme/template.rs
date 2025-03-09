@@ -1,215 +1,33 @@
-use std::io::Write;
-use std::path::Path;
-use std::fs::{self, File};
+use std::fs;
+use std::path;
 use std::str::FromStr;
 
 use crate::{expand_user, spawn, system};
 
-#[derive(Clone)]
-pub struct Template {
-    pub path: String,
-}
-
-impl FromStr for Template {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if Path::new(&expand_user(s)).exists() {
-            return Ok(Self {
-                path: s.to_string(),
-            });
-        }
-        Err(format!("Path {s} does not exist."))
-    }
-}
-
-enum TemplatePart {
+enum Section {
+    None,
     Params,
     Colors,
-    Caption,
-    None,
+    Config,
 }
 
-
-impl Template {
-    pub fn new(path: &str) -> Self {
-        Template {
-            path: String::from(path)
-        }
-    }
-
-    pub fn process(& self, colors: Vec<String>) {
-        if !Path::new(&self.path).exists() {
-            return;
-        }
-
-        let mut template_part = TemplatePart::None;
-        
-        let mut params: Vec<String> = Vec::new();
-        let mut color_vars: Vec<String> = Vec::new();
-        let mut caption: Vec<String> = Vec::new();
-
-        if let Ok(raw_template) = fs::read_to_string(&self.path) {
-            for line in raw_template.lines() {
-                match template_part {
-                    TemplatePart::Params => {
-                        if line.is_empty() || line.starts_with("#") {
-                            continue;
-                        }
-
-                        match line.trim() {
-                            "[colors]" => {
-                                template_part = TemplatePart::Colors
-                            },
-                            "[caption]" => {
-                                template_part = TemplatePart::Caption
-                            },
-                            _ => {
-                                params.push(line.trim().to_string())
-                            },
-                        }
-                    },
-                    TemplatePart::Colors => {
-                        if line.is_empty() || line.starts_with("#") {
-                            continue;
-                        }
-
-                        match line.trim() {
-                            "[param]" => {
-                                template_part = TemplatePart::Params
-                            },
-                            "[caption]" => {
-                                template_part = TemplatePart::Caption
-                            },
-                            _ => {
-                                color_vars.push(line.trim().to_string())
-                            },
-                        }
-                    },
-                    TemplatePart::Caption => {
-                        caption.push(line.to_string())
-                    },
-                    TemplatePart::None => {
-                        if line.is_empty() {
-                            continue;
-                        }
-                        match line.trim() {
-                            "[param]" => {
-                                template_part = TemplatePart::Params
-                            },
-                            "[colors]" => {
-                                template_part = TemplatePart::Colors
-                            },
-                            "[caption]" => {
-                                template_part = TemplatePart::Caption
-                            },
-                            _ => {
-                                continue;
-                            },
-                        }
-                    },
-                }
-            }
-        }
-
-        let params_val: Params;
-        let colors_val: Vec<Color>;
-        let mut caption: String = get_caption(caption);
-
-        if let Some(val) = get_params(params) {
-            params_val = val
-        } 
-        else {
-            return;
-        }
-
-        if let Some(val) = get_colors(color_vars) {
-            colors_val = val
-        }
-        else {
-            return;
-        }
-
-        if let Some(command) = &params_val.before {
-            if command.len() > 0 {
-                system(command);
-            }
-        }
-
-        let mut color_values = Vec::new();
-
-        for color in colors_val {
-            let col;
-            if color.index >= colors.len() {
-                col = "000000"
-            } else {
-                col = &colors[color.index]
-            }
-
-            if color.name.contains("{br}") {
-                for i in 1..20 {
-                    let mut _lighter = ColorValue::from_hex(
-                        &color.name.replace("{br}", &format!("LR{}", i)),
-                        &col,
-                        (10 * i) + color.change,
-                    );
-                    let mut _darker = ColorValue::from_hex(
-                        &color.name.replace("{br}", &format!("DR{}", i)),
-                        &col,
-                        (-10 * i) + color.change,
-                    );
-
-                    if color.inversed {
-                        _lighter.inverse();
-                        _darker.inverse();
-                    }
-
-                    color_values.push(_lighter);
-                    color_values.push(_darker);
-                }
-                let mut _color_value = ColorValue::from_hex(
-                    &color.name.replace("{br}", ""),
-                    &col,
-                    color.change,
-                );
-
-                if color.inversed {
-                    _color_value.inverse();
-                }
-
-                color_values.push(_color_value);
-            }
-        }
-
-        for color_value in color_values {
-            caption = color_value.apply(&params_val.format, caption)
-        }
-
-        if let Ok(mut file) = File::create(expand_user(&params_val.path)) {
-            let _ = file.write_all(caption.as_bytes());
-        }
-
-        if let Some(command) = &params_val.after {
-            if command.len() > 0 {
-                spawn(command);
-            }
-        }
-
-    }
-}
-
-struct Params {
-    path: String,
-    format: String,
-    before: Option<String>,
-    after: Option<String>,
-}
-
+#[derive(Clone)]
 struct Color {
-    name: String,
-    index: usize,
-    change: i32,
-    inversed: bool,
+    template: String,
+    index: u8,
+    brightness: i32,
+    invert: bool,
+}
+
+impl Color {
+    fn new(template: String, index: u8, brightness: i32, invert: bool) -> Self {
+        Color {
+            template,
+            index,
+            brightness,
+            invert,
+        }
+    }
 }
 
 struct ColorValue {
@@ -220,20 +38,8 @@ struct ColorValue {
 }
 
 impl ColorValue {
-    fn from_hex(name: &str, hex: &str, change: i32) -> Self {
-        let (r, g, b) = hex_to_rgb(hex);
-        let r = r as i32 + change;
-        let g = g as i32 + change;
-        let b = b as i32 + change;
-        
-        let r = if r > 255 {255} else {r};
-        let r: u8 = if r < 0 {0} else {r as u8};
-
-        let g = if g > 255 {255} else {g};
-        let g: u8 = if g < 0 {0} else {g as u8};
-
-        let b = if b > 255 {255} else {b};
-        let b: u8 = if b < 0 {0} else {b as u8};
+    fn from_hex(name: &str, hex: &str) -> Self {
+        let (r, g, b) = ColorValue::hex_to_rgb(hex);
 
         ColorValue {
             name: name.to_string(),
@@ -243,129 +49,302 @@ impl ColorValue {
         }
     }
 
+    fn add_brightness(&mut self, brightness: i32) {
+        self.r = (self.r as i32 + brightness).clamp(0, 255) as u8;
+        self.g = (self.g as i32 + brightness).clamp(0, 255) as u8;
+        self.b = (self.b as i32 + brightness).clamp(0, 255) as u8;
+    }
+
+    fn set_brightness(&mut self, brightness: u8) {
+        let current_brightness = ((self.r + self.g + self.b) as f32 / 3.0).round().clamp(0.0, 255.0) as u8;
+        let brightness_diff = brightness as f32 / current_brightness as f32;
+
+        self.r = (self.r as f32 * brightness_diff).clamp(0.0, 255.0) as u8;
+        self.g = (self.g as f32 * brightness_diff).clamp(0.0, 255.0) as u8;
+        self.b = (self.b as f32 * brightness_diff).clamp(0.0, 255.0) as u8;
+    }
+
     fn inverse(&mut self) {
         self.r = 255 - self.r;
         self.g = 255 - self.g;
         self.b = 255 - self.b;
     }
 
-    fn apply(& self, format: &str, message: String) -> String {
-        let format = format.replace("{HEX}", &rgb_to_hex(self.r, self.g, self.b))
-            .replace("{R}", &self.r.to_string())
-            .replace("{G}", &self.g.to_string())
-            .replace("{B}", &self.b.to_string());
-
-        message.replace(&self.name, &format)
-    }
-}
-
-fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
-    let hex = hex.strip_prefix('#').unwrap_or(hex);
-
-    if let Ok(rgb) = u32::from_str_radix(hex, 16) {
-        let r = (rgb >> 16) as u8;
-        let g = (rgb >> 8 & 0xFF) as u8;
-        let b = (rgb & 0xFF) as u8;
+    fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
     
-        (r, g, b)
-    } 
-    else {
-        (0, 0, 0)
-    }
-}
-
-fn rgb_to_hex(r: u8, g: u8, b: u8) -> String {
-    format!("{:02X}{:02X}{:02X}", r, g, b)
-}
-
-fn get_params(input: Vec<String>) -> Option<Params> {
-    let mut path = String::new();
-    let mut format = String::new();
-    let mut before = String::new();
-    let mut after = String::new();
-
-    for part in input {
-        if let Some(part) = part.strip_prefix("path:") {
-            path = part.to_string();
-        }
-        else if let Some(part) = part.strip_prefix("format:") {
-            format = part.to_string();
-        }
-        else if let Some(part) = part.strip_prefix("before:") {
-            before = part.to_string();
-        }
-        else if let Some(part) = part.strip_prefix("after:") {
-            after = part.to_string();
+        if let Ok(rgb) = u32::from_str_radix(hex, 16) {
+            let r = (rgb >> 16) as u8;
+            let g = (rgb >> 8 & 0xFF) as u8;
+            let b = (rgb & 0xFF) as u8;
+        
+            (r, g, b)
+        } 
+        else {
+            (0, 0, 0)
         }
     }
 
-    if path.is_empty() || format.is_empty() {
-        return None;
+    fn rgb_to_hex(r: u8, g: u8, b: u8) -> String {
+        format!("{:02X}{:02X}{:02X}", r, g, b)
     }
 
-    Some(Params {
-        path,
-        format,
-        before: Some(before),
-        after: Some(after),
-    })
+    fn hex(& self) -> String {
+        ColorValue::rgb_to_hex(self.r, self.g, self.b)
+    }
 }
 
-fn get_colors(input: Vec<String>) -> Option<Vec<Color>> {
-    let mut colors: Vec<Color> = Vec::new();
-    for raw_color in input {
-        let splitted: Vec<&str> = raw_color.split(":").collect();
+#[derive(Clone)]
+pub struct Template {
+    pub self_path: String,
+    paste_path: String,
+    color_format: String,
+    colors: Vec<Color>,
+    before_commands: Vec<String>,
+    after_commands: Vec<String>,
+    config_caption: String,
+}
 
-        let name;
-        let index;
-        let mut change = 0;
-        let mut inversed = false;
+impl Template {
+    pub fn new(path:  &str) -> Result<Self, String> {
+        if !path::Path::new(path).exists() {
+            return Err("path does not exist".to_string());
+        }
 
-        match splitted.len() {
-            2 => {
-                name = splitted[0].to_string();
+        let mut params_caption: Vec<String> = Vec::new();
+        let mut colors_caption: Vec<String> = Vec::new();
+        let mut config_caption: Vec<String> = Vec::new();
 
-                index = if let Ok(i) = splitted[1].parse::<usize>() { i } else { 0 };
-            },
-            3 => {
-                name = splitted[0].to_string();
+        if let Ok(file_caption) = fs::read_to_string(path) {
+            let mut section = Section::None;
 
-                index = if let Ok(i) = splitted[1].parse::<usize>() { i } else { 0 };
-
-                change = if let Ok(c) = splitted[2].parse::<i32>() { c } else { 0 };
-            },
-            4 => {
-                name = splitted[0].to_string();
-
-                index = if let Ok(i) = splitted[1].parse::<usize>() { i } else { 0 };
-
-                change = if let Ok(c) = splitted[2].parse::<i32>() { c } else { 0 };
-
-                if let Ok(i) = splitted[3].parse::<i32>() {                    
-                    inversed = i == 1
+            for line in file_caption.lines() {
+                match section {
+                    Section::None => {
+                        if line.is_empty() || line.starts_with("#") {continue;}
+                        match line.trim() {
+                            "[params]" => {section = Section::Params},
+                            "[colors]" => {section = Section::Colors},
+                            "[config]" => {section = Section::Config},
+                            _ => {},
+                        }
+                        continue;
+                    },
+                    Section::Params => {
+                        if line.is_empty() || line.starts_with("#") {continue;}
+                        match line.trim() {
+                            "[colors]" => {section = Section::Colors},
+                            "[config]" => {section = Section::Config},
+                            _ => {params_caption.push(line.trim().to_string())}
+                        }
+                        continue;
+                    },
+                    Section::Colors => {
+                        if line.is_empty() || line.starts_with("#") {continue;}
+                        match line.trim() {
+                            "[params]" => {section = Section::Params},
+                            "[config]" => {section = Section::Config},
+                            _ => {colors_caption.push(line.trim().to_string())}
+                        }
+                        continue;
+                    },
+                    Section::Config => {
+                        config_caption.push(line.trim().to_string());
+                    },
                 }
-            },
-            _ => {
-                continue;
-            },
-        }
+            }
+        } else {return Err("Something gone wrong".to_string());}
 
-        colors.push(Color {
-            name,
-            index,
-            change,
-            inversed,
-        });
+        params_caption = apply_include(params_caption);
+        colors_caption = apply_include(colors_caption);
+
+        let paste_path = expand_user(&collect_command(&params_caption, "Path(", ")"));
+        let color_format = collect_command(&params_caption, "Format(", ")");
+
+        let colors = collect_colors(&colors_caption);
+
+        let before_commands = collect_commands(&params_caption, "ExecBefore(", ")");
+        let after_commands = collect_commands(&params_caption, "ExecAfter(", ")");
+
+        Ok(Template{
+            self_path: path.to_string(),
+            paste_path,
+            color_format,
+            colors,
+            before_commands,
+            after_commands,
+            config_caption: config_caption.join("\n"),
+        })
     }
 
-    if colors.is_empty() {
-        None
-    } 
-    else {
-        Some(colors)
+    fn before(& self) {
+        for command in &self.before_commands {
+            if !command.is_empty() {
+                system(command);
+            }
+        }
+    }
+
+    fn after(& self) {
+        for command in &self.after_commands {
+            if !command.is_empty() {
+                spawn(command);
+            }
+        }
+    }
+
+    pub fn apply(& self, hex_colors: Vec<String>) {
+        self.before();
+
+        let mut config = self.config_caption.clone();
+
+        let mut color_values: Vec<ColorValue> = Vec::new();
+        for color in &self.colors {
+            if color.template.contains("{br}") {
+                for i in 1..20 {
+                    let mut lighter = ColorValue::from_hex(
+                        &color.template.replace("{br}", &format!("LR{i}")), 
+                        &hex_colors[color.index as usize],
+                    );
+                    let mut darker = ColorValue::from_hex(
+                        &color.template.replace("{br}", &format!("LR{i}")), 
+                        &hex_colors[color.index as usize],
+                    );
+
+                    if color.invert {
+                        lighter.inverse();
+                        darker.inverse();
+                    }
+
+                    lighter.add_brightness((i * 10) + color.brightness);
+                    darker.add_brightness((i * -10) + color.brightness);
+
+                    color_values.push(lighter);
+                    color_values.push(darker);
+                }
+            }
+            let mut color_value = ColorValue::from_hex(
+                &color.template.replace("{br}", ""), 
+                &hex_colors[color.index as usize],
+            );
+
+            if color.invert {color_value.inverse()}
+
+            color_value.add_brightness(color.brightness);
+
+            color_values.push(
+                color_value
+            );
+        }
+
+        for color_value in color_values {
+
+            let mut format = self.color_format.clone();
+            format = format.replace("{R}", &color_value.r.to_string());
+            format = format.replace("{G}", &color_value.g.to_string());
+            format = format.replace("{B}", &color_value.b.to_string());
+            format = format.replace("{HEX}", &color_value.hex());
+
+            config = config.replace(&color_value.name, &format);
+        }
+
+        let _ = fs::write(&self.paste_path, config);
+
+        self.after();
+    }
+    
+}
+
+impl FromStr for Template {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Template::new(&expand_user(s))
     }
 }
 
-fn get_caption(input: Vec<String>) -> String {
-    input.join("\n")
+fn apply_include(caption: Vec<String>) -> Vec<String> {
+    let mut res: Vec<String> = Vec::new();
+
+    for line in caption {
+        let trim_line = line.trim();
+
+        if !trim_line.starts_with("Include(") || !trim_line.ends_with(")") {
+            res.push(line);
+            continue;
+        }
+
+        if let Ok(caption) = fs::read_to_string(expand_user(&trim_line[8..trim_line.len() - 1])) {
+            res.extend(apply_include(caption.lines().map(|l| {l.to_string()}).collect()));
+        }
+    }
+
+    res
+}
+
+fn collect_commands(caption: &Vec<String>, prefix: &str, suffix: &str) -> Vec<String> {
+    let mut res = Vec::new();
+    let prefix_len = prefix.len();
+
+    for line in caption {
+        let trim_line = line.trim();
+
+        if !trim_line.starts_with(prefix) || !trim_line.ends_with(suffix) {
+            continue;
+        }
+
+        let content = &line[prefix_len..trim_line.len() - suffix.len()];
+        res.push(content.to_string());
+    }
+
+    res
+}
+
+fn collect_command(caption: &Vec<String>, prefix: &str, suffix: &str) -> String {
+    let mut res = String::new();
+    let prefix_len = prefix.len();
+
+    for line in caption {
+        let trim_line = line.trim();
+
+        if !trim_line.starts_with(prefix) || !trim_line.ends_with(suffix) {
+            continue;
+        }
+
+        let content = &line[prefix_len..trim_line.len() - suffix.len()];
+        res = content.to_string();
+    }
+
+    res
+}
+
+fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
+    let mut res = Vec::new();
+
+    for command in collect_commands(caption, "Color(", ")") {
+        let arguments: Vec<&str> = command.split(",").collect();
+        
+        if !arguments.len() > 1 {continue}
+    
+        let template = arguments[0].to_string();
+        let index = arguments[1].parse::<u8>().unwrap_or(0).clamp(0, 15);
+        let mut brightness = 0;
+        let mut invert = false;
+
+        if arguments.len() > 2 {
+            brightness = arguments[2].parse().unwrap_or(0);
+        }
+        if arguments.len() > 3 {
+            invert = matches!(arguments[3], "1" | "true" | "True");
+        }
+
+        res.push(Color::new(
+            template,
+            index,
+            brightness,
+            invert,
+        ))
+    }
+
+    res
 }

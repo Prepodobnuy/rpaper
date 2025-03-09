@@ -100,7 +100,9 @@ fn read_templates(value: &Value) -> Option<Vec<Template>> {
 
     for template_path in value["templates"].as_array()? {
         if let Some(path) = template_path.as_str() {
-            templates.push(Template::new(&expand_user(path)));
+            if let Ok(template) = Template::new(&expand_user(path)) {
+                templates.push(template);
+            }
         }
     }
 
@@ -193,7 +195,7 @@ impl JsonString for Template {
     fn json(& self) -> String {
         format!(
             "\"{}\"",
-            self.path
+            self.self_path
         )
     }
 }

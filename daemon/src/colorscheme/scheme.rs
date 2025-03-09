@@ -26,7 +26,7 @@ pub fn set_scheme(config: &Config, image_path: &str) {
                     let template = template.clone();
                     let colors = colors.clone();
                     let thread = thread::spawn(move || {
-                        template.process(colors);
+                        template.apply(colors);
                     });
                     handlers.push(thread);
                 }
