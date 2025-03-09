@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::Read;
+use std::path;
 
 use serde_json::Value;
 
@@ -15,7 +16,7 @@ use crate::wallpaper::display::WCacheInfo;
 #[derive(Clone)]
 pub struct Config {
     pub displays: Option<Vec<Display>>,
-    pub templates: Option<Vec<Template>>,
+    pub templates: Option<Vec<String>>,
     pub wallpaper_set_command: Option<String>,
     pub resize_algorithm: Option<String>,
     pub rwal_params: Option<RwalParams>,
@@ -95,13 +96,13 @@ fn read_displays(value: &Value) -> Option<Vec<Display>> {
     Some(displays)
 }
 
-fn read_templates(value: &Value) -> Option<Vec<Template>> {
+fn read_templates(value: &Value) -> Option<Vec<String>> {
     let mut templates = Vec::new();
 
     for template_path in value["templates"].as_array()? {
         if let Some(path) = template_path.as_str() {
-            if let Ok(template) = Template::new(&expand_user(path)) {
-                templates.push(template);
+            if path::Path::new(&expand_user(path)).exists() {
+                templates.push(expand_user(path));
             }
         }
     }
@@ -200,7 +201,26 @@ impl JsonString for Template {
     }
 }
 
+impl JsonString for String {
+    fn json(& self) -> String {
+        format!(
+            "\"{}\"",
+            self
+        )
+    }
+}
+
 impl JsonString for Vec<Template> {
+    fn json(& self) -> String {
+        let json_strings: Vec<String> = self.into_iter()
+            .map(|t| t.json())
+            .collect();
+
+        format!("[{}]", json_strings.join(","))
+    }
+}
+
+impl JsonString for Vec<String> {
     fn json(& self) -> String {
         let json_strings: Vec<String> = self.into_iter()
             .map(|t| t.json())

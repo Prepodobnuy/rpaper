@@ -204,7 +204,7 @@ struct RequestTags {
     config_flip_h: Option<bool>,
     config_flip_v: Option<bool>,
     config_displays: Option<Vec<Display>>,
-    config_templates: Option<Vec<Template>>,
+    config_templates: Option<Vec<String>>,
     config_resize_alg: Option<String>,
     // Rwal tags
     rwal_thumb: Option<(u32, u32)>,
@@ -230,7 +230,7 @@ impl RequestTags {
         let mut config_flip_h: Option<bool> = None;
         let mut config_flip_v: Option<bool> = None;
         let mut config_displays: Option<Vec<Display>> = None;
-        let mut config_templates: Option<Vec<Template>> = None;
+        let mut config_templates: Option<Vec<String>> = None;
         let mut config_resize_alg: Option<String> = None;
         let mut rwal_thumb: Option<(u32, u32)> = None;
         let mut rwal_clamp: Option<(f32, f32)> = None;
@@ -255,7 +255,7 @@ impl RequestTags {
                 "CONFIG_FLIP_H" =>     {config_flip_h     = Some(true)},
                 "CONFIG_FLIP_V" =>     {config_flip_v     = Some(true)},
                 "CONFIG_DISPLAYS" =>   {config_displays   = get_array::<Display>(&tags, i)},
-                "CONFIG_TEMPLATES" =>  {config_templates  = get_array::<Template>(&tags, i)},
+                "CONFIG_TEMPLATES" =>  {config_templates  = get_array::<String>(&tags, i)},
                 "CONFIG_RESIZE_ALG" => {config_resize_alg = get_value::<String>(&tags, i)},
                 "RWAL_THUMB" =>        {rwal_thumb        = get_thumb(&tags, i)},
                 "RWAL_CLAMP" =>        {rwal_clamp        = get_clamp(&tags, i)},

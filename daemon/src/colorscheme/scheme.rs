@@ -2,7 +2,7 @@ use std::{path::Path, thread};
 
 use crate::{daemon::config::Config, encode_string, expand_user, get_image_name, logger::logger::log, wallpaper::display::ImageOperations, COLORS_DIR};
 
-use super::rwal::{cache_rwal, run_rwal, OrderBy, RwalParams};
+use super::{rwal::{cache_rwal, run_rwal, OrderBy, RwalParams}, template::Template};
 
 pub fn set_scheme(config: &Config, image_path: &str) {
     if let Some(image_ops) = &config.image_operations {
@@ -26,7 +26,9 @@ pub fn set_scheme(config: &Config, image_path: &str) {
                     let template = template.clone();
                     let colors = colors.clone();
                     let thread = thread::spawn(move || {
-                        template.apply(colors);
+                        if let Ok(tem) = Template::new(&template) {
+                            tem.apply(colors);
+                        }
                     });
                     handlers.push(thread);
                 }
