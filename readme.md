@@ -22,13 +22,19 @@ feel free
 ## Todo
 - ~~get rid of pywal~~
 - ~~client add arguments~~
+- ~~implement sane --help for client~~
 - ~~readme~~
 - ~~daemon unix socket listener~~
-- daemon http adress listener
+- restructure rwal code
+- implement semantic (red, green, yellow, blue, purple, aqua) palette ordering
+- restructure listener architecture (use json instead of shitty tags)
+- daemon http listener
+- client http
+- daemon rpc listener
+- client rpc
 - video support using [mpvpaper](https://github.com/GhostNaN/mpvpaper)
-- write own wallpaper setter (wayland-client)
+- own wayland wallpaper setter (abandon swaybg/swww/etc)
 - add diferent image setting modes (fit/fill/crop/etc)
-- ~~implement sane --help for client~~
 - implement sane --help for daemon
 - implement sane logger for daemon
 - write wiki
