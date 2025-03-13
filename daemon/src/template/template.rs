@@ -125,7 +125,7 @@ impl Template {
             config = config.replace(&color_value.name, &format);
         }
 
-        let _ = fs::write(&self.conf_path, config);
+        let _ = fs::write(expand_user(&self.conf_path), config);
 
         self.exec_after();
     }
