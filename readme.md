@@ -1,7 +1,7 @@
 ![rpaper logo](rpaper.png)
 
 ## About
-Rpaper is a needed to color programs in your cool and modern GNU/Linux distribution.
+Rpaper is needed to color programs in your cool and modern GNU/Linux distribution.
 To color rpaper uses templates, human readable meta-configuration files. (configs of configs lol)
 Templates contain the original configuration file, some parameters and ability to paste colors in declared variables.
 
