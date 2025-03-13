@@ -1,12 +1,11 @@
-use std::os::unix::net::UnixStream;
-use std::io::{Write, BufReader, BufRead};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-
 
 fn main() {
     if !Path::new(SOCKET_PATH).exists() {
@@ -14,14 +13,15 @@ fn main() {
         return;
     }
 
-    if std::env::args().collect::<Vec<String>>().contains(&"--help".to_string()) {
+    if std::env::args()
+        .collect::<Vec<String>>()
+        .contains(&"--help".to_string())
+    {
         println!("{HELP_MESSAGE}");
         return;
     }
 
-    let mut req = Request::new(
-        std::env::args().skip(1).collect()
-    );
+    let mut req = Request::new(std::env::args().skip(1).collect());
 
     req.process();
 }
@@ -170,23 +170,25 @@ impl Request {
                 let _ = send(&image_request);
                 return;
             }
-            
+
             let images = get_images_from_dir(&get_absolute_path(image.to_string()));
-            
+
             if !self.cache {
                 let image_request = self.pack_image_request(&select_random(images));
                 let _ = send(&image_request);
                 return;
             }
 
-            let image_request = images.into_iter().map(|image_path| {
-                self.pack_image_request(&image_path)
-            }).collect::<Vec<String>>().join(";");
+            let image_request = images
+                .into_iter()
+                .map(|image_path| self.pack_image_request(&image_path))
+                .collect::<Vec<String>>()
+                .join(";");
             let _ = send(&image_request);
         }
     }
 
-    fn pack_image_request(& self, image_path: &str) -> String {
+    fn pack_image_request(&self, image_path: &str) -> String {
         let mut tags: Vec<String> = Vec::new();
         tags.push("IMAGE".to_string());
         tags.push(image_path.to_string());
@@ -230,20 +232,30 @@ impl Request {
             tags.push("CONFIG_HUE".to_string());
             tags.push(hue.to_string());
         }
-        if self.config_invert { tags.push("CONFIG_INVERT".to_string()); }
-        if self.config_flip_h { tags.push("CONFIG_FLIP_H".to_string()); }
-        if self.config_flip_v { tags.push("CONFIG_FLIP_V".to_string()); }
+        if self.config_invert {
+            tags.push("CONFIG_INVERT".to_string());
+        }
+        if self.config_flip_h {
+            tags.push("CONFIG_FLIP_H".to_string());
+        }
+        if self.config_flip_v {
+            tags.push("CONFIG_FLIP_V".to_string());
+        }
         if let Some(displays) = &self.config_displays {
-            let displays_string = displays.into_iter().map(|d| {
-                d.to_string()
-            }).collect::<Vec<String>>().join(",");
+            let displays_string = displays
+                .into_iter()
+                .map(|d| d.to_string())
+                .collect::<Vec<String>>()
+                .join(",");
             tags.push("CONFIG_DISPLAYS".to_string());
             tags.push(displays_string);
         }
         if let Some(templates) = &self.config_templates {
-            let templates_string = templates.into_iter().map(|t| {
-                t.to_string()
-            }).collect::<Vec<String>>().join(",");
+            let templates_string = templates
+                .into_iter()
+                .map(|t| t.to_string())
+                .collect::<Vec<String>>()
+                .join(",");
             tags.push("CONFIG_TEMPLATES".to_string());
             tags.push(templates_string);
         }
@@ -276,30 +288,11 @@ impl Request {
 }
 
 impl Display {
-    fn new(
-        name: String,
-        w: u32,
-        h: u32,
-        x: u32,
-        y: u32,
-    ) -> Self {
-        Self {
-            name,
-            w,
-            h,
-            x,
-            y,
-        }
+    fn new(name: String, w: u32, h: u32, x: u32, y: u32) -> Self {
+        Self { name, w, h, x, y }
     }
-    fn to_string(& self) -> String {
-        format!(
-            "{}:{}:{}:{}:{}",
-            self.name,
-            self.w,
-            self.h,
-            self.x,
-            self.y,
-        )
+    fn to_string(&self) -> String {
+        format!("{}:{}:{}:{}:{}", self.name, self.w, self.h, self.x, self.y,)
     }
 }
 
@@ -331,11 +324,13 @@ fn get_value<T: std::str::FromStr>(list: &Vec<String>, prev_element: &str) -> Op
 
 fn get_displays_value(list: &Vec<String>, prev_element: &str) -> Option<Vec<Display>> {
     let mut displays: Vec<Display> = Vec::new();
-    
+
     if let Some(raw_displays) = get_value::<String>(list, prev_element) {
         for raw_display in raw_displays.split(";") {
             let data: Vec<&str> = raw_display.split(":").collect();
-            if data.len() != 5 { continue; }
+            if data.len() != 5 {
+                continue;
+            }
             displays.push(Display::new(
                 data[0].parse().unwrap_or("name".to_string()),
                 data[1].parse().unwrap_or(0),
@@ -345,14 +340,10 @@ fn get_displays_value(list: &Vec<String>, prev_element: &str) -> Option<Vec<Disp
             ));
         }
     }
-    
+
     match displays.is_empty() {
-        true => {
-            None
-        },
-        false => {
-            Some(displays)
-        }
+        true => None,
+        false => Some(displays),
     }
 }
 
@@ -360,21 +351,19 @@ fn get_templates_value(list: &Vec<String>, prev_element: &str) -> Option<Vec<Str
     let mut templates: Vec<String> = Vec::new();
 
     if let Some(raw_templates) = get_value::<String>(list, prev_element) {
-        templates = raw_templates.split(";").map(|x| {x.to_string()}).collect();
+        templates = raw_templates.split(";").map(|x| x.to_string()).collect();
     }
 
     match templates.is_empty() {
-        true => {
-            None
-        },
-        false => {
-            Some(templates)
-        }
+        true => None,
+        false => Some(templates),
     }
 }
 
 fn is_dir(path: &str) -> bool {
-    fs::metadata(path).map(|meta| meta.is_dir()).unwrap_or(false)
+    fs::metadata(path)
+        .map(|meta| meta.is_dir())
+        .unwrap_or(false)
 }
 
 fn select_random(strings: Vec<String>) -> String {
@@ -396,8 +385,10 @@ fn is_file_image(extension: &str) -> bool {
 
 fn get_absolute_path(path: String) -> String {
     let Ok(path) = PathBuf::from_str(&path);
-    
-    return path.canonicalize().unwrap_or_else(|_| path)
+
+    return path
+        .canonicalize()
+        .unwrap_or_else(|_| path)
         .to_string_lossy()
         .to_string();
 }
@@ -411,15 +402,15 @@ fn get_images_from_dir(dir: &str) -> Vec<String> {
         let entry = entry.unwrap();
         let file_type = entry.file_type().unwrap();
         if file_type.is_dir() {
-            res.extend(get_images_from_dir(
-                &get_absolute_path(entry.path().to_string_lossy().to_string())
-            ))
+            res.extend(get_images_from_dir(&get_absolute_path(
+                entry.path().to_string_lossy().to_string(),
+            )))
         } else if file_type.is_file() {
             if let Some(extension) = entry.path().extension() {
                 if is_file_image(extension.to_str().unwrap_or("")) {
-                    res.push(
-                        get_absolute_path(entry.path().to_string_lossy().to_string())
-                    )
+                    res.push(get_absolute_path(
+                        entry.path().to_string_lossy().to_string(),
+                    ))
                 }
             }
         }
@@ -428,8 +419,7 @@ fn get_images_from_dir(dir: &str) -> Vec<String> {
 }
 
 const SOCKET_PATH: &str = "/tmp/rpaper-daemon";
-const HELP_MESSAGE: &str = 
-r#"+-----------------------------+-------------------------------------------------------+
+const HELP_MESSAGE: &str = r#"+-----------------------------+-------------------------------------------------------+
 |                             |                                                       |
 |          argument           |                      description                      |
 |                             |                                                       |

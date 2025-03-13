@@ -1,18 +1,17 @@
+use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use std::path::Path;
 
-use crate::logger::logger::{err, info, log};
-use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
-use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
 use crate::daemon::request::Request;
+use crate::logger::logger::{err, info, log};
+use crate::{daemon::config::Config, expand_user, CONFIG_PATH};
+use crate::{unix_timestamp, CACHE_DIR, COLORS_DIR, CONFIG_DIR, SOCKET_PATH, WALLPAPERS_DIR};
 
 use super::config_watcher::start_config_watcher;
 use super::directory_watcher::start_directory_watcher;
 use super::request::process_info_request;
 use super::socket_listener::start_socket_listener;
-
 
 #[derive(Clone)]
 pub enum MpscData {
@@ -57,17 +56,24 @@ impl Daemon {
                 expand_user(WALLPAPERS_DIR),
                 expand_user(COLORS_DIR),
                 expand_user(CONFIG_DIR),
-            ], 
-            sender.clone()
+            ],
+            sender.clone(),
         );
 
         start_config_watcher(&expand_user(CONFIG_PATH), sender.clone());
 
         let socket_sender = start_socket_listener(SOCKET_PATH, sender.clone());
 
-        info(&format!("Daemon initialized in {}ms.", unix_timestamp() - timestamp));
+        info(&format!(
+            "Daemon initialized in {}ms.",
+            unix_timestamp() - timestamp
+        ));
 
-        Daemon { config, receiver, socket_sender }
+        Daemon {
+            config,
+            receiver,
+            socket_sender,
+        }
     }
 
     pub fn mainloop(&mut self) {
@@ -77,27 +83,29 @@ impl Daemon {
                     MpscData::ConfigChanged(value) => {
                         self.config.read_from_string(value);
                         info("Config changed.");
-                    },
-                    MpscData::ErrorCreatingDirectory => { 
-                        err("Unable to create needed directory."); 
-                    },
-                    MpscData::SuccesCreatingDirectory => { 
-                        info("Needed directory created."); 
-                    },
+                    }
+                    MpscData::ErrorCreatingDirectory => {
+                        err("Unable to create needed directory.");
+                    }
+                    MpscData::SuccesCreatingDirectory => {
+                        info("Needed directory created.");
+                    }
                     MpscData::ListenerRequest(message) => {
                         log("Received wallpaper request.");
                         let mut request = Request::new(self.config.clone(), message);
                         request.process();
                         std::mem::drop(request);
-                    },
+                    }
                     MpscData::InfoRequest(request) => {
                         if let Some(respond) = process_info_request(self.config.clone(), request) {
                             let _ = self.socket_sender.send(MpscData::ListenerRespond(respond));
                         } else {
-                            let _ = self.socket_sender.send(MpscData::ListenerRespond("{}".to_string()));
+                            let _ = self
+                                .socket_sender
+                                .send(MpscData::ListenerRespond("{}".to_string()));
                         }
-                    },
-                    _ => {},
+                    }
+                    _ => {}
                 }
             }
             thread::sleep(Duration::from_millis(10));

@@ -1,6 +1,6 @@
-use std::thread;
 use std::path::Path;
 use std::str::FromStr;
+use std::thread;
 
 use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
 use image::{self, DynamicImage};
@@ -20,7 +20,7 @@ pub struct Display {
 
 impl FromStr for Display {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut name: String = String::new();
         let mut w: u32 = 0;
@@ -32,51 +32,39 @@ impl FromStr for Display {
             return Err(String::from("Unable to parse string"));
         }
 
-        s.split(":")
-            .enumerate()
-            .for_each(|(i, param)| {
-                match i {
-                    0 => {name = String::from(param)},
-                    1 => {w = param.parse().unwrap_or(0)},
-                    2 => {h = param.parse().unwrap_or(0)},
-                    3 => {x = param.parse().unwrap_or(0)},
-                    4 => {y = param.parse().unwrap_or(0)},
-                    _ => {},
-                }
-            });
+        s.split(":").enumerate().for_each(|(i, param)| match i {
+            0 => name = String::from(param),
+            1 => w = param.parse().unwrap_or(0),
+            2 => h = param.parse().unwrap_or(0),
+            3 => x = param.parse().unwrap_or(0),
+            4 => y = param.parse().unwrap_or(0),
+            _ => {}
+        });
 
-        Ok(Self{
-            w,
-            h,
-            x,
-            y,
-            name,
-        })
+        Ok(Self { w, h, x, y, name })
     }
 }
 
 impl Display {
-    pub fn new(
-        w: u32,
-        h: u32,
-        x: u32,
-        y: u32,
-        name: String,
-    ) -> Self {
-        Display {
-            w,
-            h,
-            x,
-            y,
-            name,
-        }
+    pub fn new(w: u32, h: u32, x: u32, y: u32, name: String) -> Self {
+        Display { w, h, x, y, name }
     }
 
-    pub fn name(&self) -> String {self.name.clone()}
-    pub fn width(&self) -> u32 {self.w}
-    pub fn height(&self) -> u32 {self.h}
-    pub fn x(&self) -> u32 {self.x}
-    pub fn y(&self) -> u32 {self.y}
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn width(&self) -> u32 {
+        self.w
+    }
+    pub fn height(&self) -> u32 {
+        self.h
+    }
+    pub fn x(&self) -> u32 {
+        self.x
+    }
+    pub fn y(&self) -> u32 {
+        self.y
+    }
 }
 
 fn displays_max_width(displays: &Vec<Display>) -> u32 {
@@ -145,7 +133,7 @@ impl ImageOperations {
             invert,
             flip_h,
             flip_v,
-        }       
+        }
     }
 }
 
@@ -225,41 +213,41 @@ fn get_image(
 fn get_file_extension(file_name: &str) -> &str {
     if let Some(pos) = file_name.rfind('.') {
         if pos != 0 {
-            return &file_name[pos + 1..]
+            return &file_name[pos + 1..];
         }
     }
     ""
 }
 
-pub fn get_cached_image_names(displays: &Vec<Display>, image_ops: &ImageOperations, image_path: &str) -> Vec<String> {
+pub fn get_cached_image_names(
+    displays: &Vec<Display>,
+    image_ops: &ImageOperations,
+    image_path: &str,
+) -> Vec<String> {
     let image_name = get_image_name(image_path);
     let image_extension = get_file_extension(&image_name);
     let mut cached_images: Vec<String> = Vec::new();
     for display in displays {
-        cached_images.push(
-            format!(
-                "{}.{}",
-                encode_string(
-                    &format!(
-                        "{}{}{}{}{}{}{}{}{}{}{}{}{}",
-                        image_name,
-                        display.name,
-                        display.w,
-                        display.h,
-                        display.x,
-                        display.y,
-                        image_ops.contrast,
-                        image_ops.brightness,
-                        image_ops.hue,
-                        image_ops.blur,
-                        image_ops.invert,
-                        image_ops.flip_h,
-                        image_ops.flip_v,
-                    )
-                ),
-                image_extension
-            )
-        )
+        cached_images.push(format!(
+            "{}.{}",
+            encode_string(&format!(
+                "{}{}{}{}{}{}{}{}{}{}{}{}{}",
+                image_name,
+                display.name,
+                display.w,
+                display.h,
+                display.x,
+                display.y,
+                image_ops.contrast,
+                image_ops.brightness,
+                image_ops.hue,
+                image_ops.blur,
+                image_ops.invert,
+                image_ops.flip_h,
+                image_ops.flip_v,
+            )),
+            image_extension
+        ))
     }
     cached_images
 }
@@ -268,13 +256,7 @@ pub fn get_cached_image_paths(cache_images: &Vec<String>, cache_path: &str) -> V
     let mut cache_paths: Vec<String> = Vec::new();
 
     for cache_image in cache_images {
-        cache_paths.push(
-            format!(
-                "{}/{}",
-                cache_path,
-                cache_image,
-            )
-        )
+        cache_paths.push(format!("{}/{}", cache_path, cache_image,))
     }
 
     cache_paths
@@ -286,14 +268,14 @@ pub fn cache_wallpaper(config: &Config, image_path: &str) {
             if let Some(image_resize_algorithm) = &config.resize_algorithm {
                 log("Caching wallpaper...");
                 let cache_paths = get_cached_image_paths(
-                    &get_cached_image_names(displays, image_ops, image_path), 
-                    WALLPAPERS_DIR
+                    &get_cached_image_names(displays, image_ops, image_path),
+                    WALLPAPERS_DIR,
                 );
-            
+
                 let image = get_image(image_path, image_ops, displays, image_resize_algorithm);
-            
+
                 let mut handlers = Vec::new();
-            
+
                 for (i, cache_path) in cache_paths.into_iter().enumerate() {
                     let display = displays[i].clone();
                     let cache_path = String::from(cache_path);
@@ -305,7 +287,7 @@ pub fn cache_wallpaper(config: &Config, image_path: &str) {
                     });
                     handlers.push(thread)
                 }
-            
+
                 for handler in handlers {
                     handler.join().unwrap();
                 }
@@ -314,7 +296,12 @@ pub fn cache_wallpaper(config: &Config, image_path: &str) {
     }
 }
 
-fn parse_set_command(command: &str, image_path: &str, original_image_path: &str, display: &str) -> String {
+fn parse_set_command(
+    command: &str,
+    image_path: &str,
+    original_image_path: &str,
+    display: &str,
+) -> String {
     command
         .replace("{image}", image_path)
         .replace("{default_image}", original_image_path)
@@ -326,10 +313,10 @@ pub fn set_wallpaper(config: &Config, image_path: &str) {
         if let Some(image_ops) = &config.image_operations {
             if let Some(set_command) = &config.wallpaper_set_command {
                 let cache_paths = get_cached_image_paths(
-                    &get_cached_image_names(displays, image_ops, image_path), 
-                    WALLPAPERS_DIR
+                    &get_cached_image_names(displays, image_ops, image_path),
+                    WALLPAPERS_DIR,
                 );
-            
+
                 for cache_path in &cache_paths {
                     if !Path::new(&expand_user(cache_path)).exists() {
                         cache_wallpaper(config, image_path);
@@ -338,9 +325,10 @@ pub fn set_wallpaper(config: &Config, image_path: &str) {
                 }
 
                 log("Setting wallpaper...");
-            
+
                 for (i, cache_path) in cache_paths.into_iter().enumerate() {
-                    let command = parse_set_command(set_command, &cache_path, image_path, &displays[i].name);
+                    let command =
+                        parse_set_command(set_command, &cache_path, image_path, &displays[i].name);
                     spawn(&command);
                 }
             }

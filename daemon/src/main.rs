@@ -1,15 +1,15 @@
 mod colorscheme;
 mod daemon;
-mod wallpaper;
 mod logger;
+mod wallpaper;
 
-use std::path::{PathBuf, Path};
-use std::{env, thread};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{env, thread};
 
 use logger::logger::info;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 use crate::daemon::daemon::Daemon;
 
@@ -36,14 +36,18 @@ pub fn expand_user(path: &str) -> String {
     if path.is_empty() {
         return path.to_string();
     }
-    
+
     if &path[0..1] != "~" {
         return String::from(path);
     }
 
     if let Some(home_dir) = env::var_os("HOME") {
         let stripped_path = path.strip_prefix("~/").unwrap_or(path);
-        return PathBuf::from(home_dir).join(stripped_path).into_os_string().into_string().unwrap();
+        return PathBuf::from(home_dir)
+            .join(stripped_path)
+            .into_os_string()
+            .into_string()
+            .unwrap();
     }
 
     panic!("HOME environment variable is not set.");
@@ -72,7 +76,8 @@ pub fn system(command: &str) {
         .args(["bash", "-c", &command])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .spawn().expect("");
+        .spawn()
+        .expect("");
     let _exit_status = child.wait().expect("Failed to wait for command");
 }
 
@@ -81,15 +86,16 @@ pub fn spawn(command: &str) {
         .args(["bash", "-c", &command])
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .spawn().expect("");
+        .spawn()
+        .expect("");
 }
 
-fn main() {    
+fn main() {
     if Path::new(SOCKET_PATH).exists() {
         let _ = std::fs::remove_file(SOCKET_PATH);
         thread::sleep(Duration::from_millis(20));
     }
-    
+
     let mut daemon = Daemon::new();
     daemon.mainloop();
 

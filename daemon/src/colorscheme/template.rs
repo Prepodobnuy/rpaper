@@ -17,11 +17,17 @@ struct Color {
     index: u8,
     brightness: i32,
     invert: bool,
-    hex: Option<String>
+    hex: Option<String>,
 }
 
 impl Color {
-    fn new(template: String, index: u8, brightness: i32, invert: bool, hex: Option<String>) -> Self {
+    fn new(
+        template: String,
+        index: u8,
+        brightness: i32,
+        invert: bool,
+        hex: Option<String>,
+    ) -> Self {
         Color {
             template,
             index,
@@ -58,7 +64,9 @@ impl ColorValue {
     }
 
     fn set_brightness(&mut self, brightness: u8) {
-        let current_brightness = ((self.r + self.g + self.b) as f32 / 3.0).round().clamp(0.0, 255.0) as u8;
+        let current_brightness = ((self.r + self.g + self.b) as f32 / 3.0)
+            .round()
+            .clamp(0.0, 255.0) as u8;
         let brightness_diff = brightness as f32 / current_brightness as f32;
 
         self.r = (self.r as f32 * brightness_diff).clamp(0.0, 255.0) as u8;
@@ -74,15 +82,14 @@ impl ColorValue {
 
     fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
         let hex = hex.strip_prefix('#').unwrap_or(hex);
-    
+
         if let Ok(rgb) = u32::from_str_radix(hex, 16) {
             let r = (rgb >> 16) as u8;
             let g = (rgb >> 8 & 0xFF) as u8;
             let b = (rgb & 0xFF) as u8;
-        
+
             (r, g, b)
-        } 
-        else {
+        } else {
             (0, 0, 0)
         }
     }
@@ -98,7 +105,7 @@ impl ColorValue {
         self.b = b;
     }
 
-    fn hex(& self) -> String {
+    fn hex(&self) -> String {
         ColorValue::rgb_to_hex(self.r, self.g, self.b)
     }
 }
@@ -115,7 +122,7 @@ pub struct Template {
 }
 
 impl Template {
-    pub fn new(path:  &str) -> Result<Self, String> {
+    pub fn new(path: &str) -> Result<Self, String> {
         if !path::Path::new(path).exists() {
             return Err("path does not exist".to_string());
         }
@@ -130,39 +137,47 @@ impl Template {
             for line in file_caption.lines() {
                 match section {
                     Section::None => {
-                        if line.is_empty() || line.starts_with("#") {continue;}
+                        if line.is_empty() || line.starts_with("#") {
+                            continue;
+                        }
                         match line.trim() {
-                            "[params]" => {section = Section::Params},
-                            "[colors]" => {section = Section::Colors},
-                            "[config]" => {section = Section::Config},
-                            _ => {},
+                            "[params]" => section = Section::Params,
+                            "[colors]" => section = Section::Colors,
+                            "[config]" => section = Section::Config,
+                            _ => {}
                         }
                         continue;
-                    },
+                    }
                     Section::Params => {
-                        if line.is_empty() || line.starts_with("#") {continue;}
+                        if line.is_empty() || line.starts_with("#") {
+                            continue;
+                        }
                         match line.trim() {
-                            "[colors]" => {section = Section::Colors},
-                            "[config]" => {section = Section::Config},
-                            _ => {params_caption.push(line.trim().to_string())}
+                            "[colors]" => section = Section::Colors,
+                            "[config]" => section = Section::Config,
+                            _ => params_caption.push(line.trim().to_string()),
                         }
                         continue;
-                    },
+                    }
                     Section::Colors => {
-                        if line.is_empty() || line.starts_with("#") {continue;}
+                        if line.is_empty() || line.starts_with("#") {
+                            continue;
+                        }
                         match line.trim() {
-                            "[params]" => {section = Section::Params},
-                            "[config]" => {section = Section::Config},
-                            _ => {colors_caption.push(line.trim().to_string())}
+                            "[params]" => section = Section::Params,
+                            "[config]" => section = Section::Config,
+                            _ => colors_caption.push(line.trim().to_string()),
                         }
                         continue;
-                    },
+                    }
                     Section::Config => {
                         config_caption.push(line.trim().to_string());
-                    },
+                    }
                 }
             }
-        } else {return Err("Something gone wrong".to_string());}
+        } else {
+            return Err("Something gone wrong".to_string());
+        }
 
         params_caption = apply_include(params_caption);
         colors_caption = apply_include(colors_caption);
@@ -174,7 +189,7 @@ impl Template {
         let before_commands = collect_commands(&params_caption, "ExecBefore(", ")");
         let after_commands = collect_commands(&params_caption, "ExecAfter(", ")");
 
-        Ok(Template{
+        Ok(Template {
             self_path: path.to_string(),
             paste_path,
             color_format,
@@ -185,7 +200,7 @@ impl Template {
         })
     }
 
-    fn before(& self) {
+    fn before(&self) {
         for command in &self.before_commands {
             if !command.is_empty() {
                 system(command);
@@ -193,7 +208,7 @@ impl Template {
         }
     }
 
-    fn after(& self) {
+    fn after(&self) {
         for command in &self.after_commands {
             if !command.is_empty() {
                 spawn(command);
@@ -201,7 +216,7 @@ impl Template {
         }
     }
 
-    pub fn apply(& self, hex_colors: Vec<String>) {
+    pub fn apply(&self, hex_colors: Vec<String>) {
         self.before();
 
         let mut config = self.config_caption.clone();
@@ -211,11 +226,11 @@ impl Template {
             if color.template.contains("{br}") {
                 for i in 1..20 {
                     let mut lighter = ColorValue::from_hex(
-                        &color.template.replace("{br}", &format!("LR{i}")), 
+                        &color.template.replace("{br}", &format!("LR{i}")),
                         &hex_colors[color.index as usize],
                     );
                     let mut darker = ColorValue::from_hex(
-                        &color.template.replace("{br}", &format!("DR{i}")), 
+                        &color.template.replace("{br}", &format!("DR{i}")),
                         &hex_colors[color.index as usize],
                     );
 
@@ -237,7 +252,7 @@ impl Template {
                 }
             }
             let mut color_value = ColorValue::from_hex(
-                &color.template.replace("{br}", ""), 
+                &color.template.replace("{br}", ""),
                 &hex_colors[color.index as usize],
             );
 
@@ -245,17 +260,16 @@ impl Template {
                 color_value.set_value_from_hex(hex);
             }
 
-            if color.invert {color_value.invert()}
+            if color.invert {
+                color_value.invert()
+            }
 
             color_value.add_brightness(color.brightness);
 
-            color_values.push(
-                color_value
-            );
+            color_values.push(color_value);
         }
 
         for color_value in color_values {
-
             let mut format = self.color_format.clone();
             format = format.replace("{R}", &color_value.r.to_string());
             format = format.replace("{G}", &color_value.g.to_string());
@@ -269,7 +283,6 @@ impl Template {
 
         self.after();
     }
-    
 }
 
 impl FromStr for Template {
@@ -292,7 +305,12 @@ fn apply_include(caption: Vec<String>) -> Vec<String> {
         }
 
         if let Ok(caption) = fs::read_to_string(expand_user(&trim_line[8..trim_line.len() - 1])) {
-            res.extend(apply_include(caption.lines().map(|l| {l.to_string()}).collect::<Vec<String>>()));
+            res.extend(apply_include(
+                caption
+                    .lines()
+                    .map(|l| l.to_string())
+                    .collect::<Vec<String>>(),
+            ));
         }
     }
 
@@ -340,9 +358,11 @@ fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
 
     for command in collect_commands(caption, "Color(", ")") {
         let arguments: Vec<&str> = command.split(",").collect();
-        
-        if !arguments.len() < 2 {continue}
-    
+
+        if !arguments.len() < 2 {
+            continue;
+        }
+
         let template = arguments[0].trim().to_string();
         let index = arguments[1].trim().parse::<u8>().unwrap_or(0).clamp(0, 15);
         let mut brightness = 0;
@@ -355,19 +375,15 @@ fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
             invert = matches!(arguments[3].trim(), "1" | "true" | "True");
         }
 
-        res.push(Color::new(
-            template,
-            index,
-            brightness,
-            invert,
-            None,
-        ))
+        res.push(Color::new(template, index, brightness, invert, None))
     }
 
     for command in collect_commands(caption, "HEX(", ")") {
         let arguments: Vec<&str> = command.split(",").collect();
 
-        if arguments.len() != 2 {continue}
+        if arguments.len() != 2 {
+            continue;
+        }
 
         let template = arguments[0].trim().to_string();
         let index: u8 = 0;
@@ -375,13 +391,7 @@ fn collect_colors(caption: &Vec<String>) -> Vec<Color> {
         let brightness = 0;
         let invert = false;
 
-        res.push(Color::new(
-            template,
-            index,
-            brightness,
-            invert,
-            Some(hex),
-        ))
+        res.push(Color::new(template, index, brightness, invert, Some(hex)))
     }
 
     res

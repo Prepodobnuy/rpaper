@@ -5,13 +5,12 @@ use std::path;
 use serde_json::Value;
 
 use crate::colorscheme::rwal::OrderBy;
+use crate::colorscheme::rwal::RwalParams;
+use crate::colorscheme::template::Template;
 use crate::expand_user;
 use crate::wallpaper::display::Display;
 use crate::wallpaper::display::ImageOperations;
-use crate::colorscheme::template::Template;
-use crate::colorscheme::rwal::RwalParams;
 use crate::wallpaper::display::WCacheInfo;
-
 
 #[derive(Clone)]
 pub struct Config {
@@ -61,9 +60,9 @@ impl Config {
 fn read_value(path: &str) -> Option<Value> {
     if let Ok(mut file) = File::open(path) {
         let mut json_data = String::new();
-        
+
         if let Err(_) = file.read_to_string(&mut json_data) {
-            return  None;
+            return None;
         }
 
         if let Ok(data) = serde_json::from_str(&json_data) {
@@ -136,17 +135,23 @@ fn read_rwal_params(value: &Value) -> Option<RwalParams> {
     let clamp_min = rwal["clamp_min"].as_f64().unwrap_or(140.0) as f32;
     let clamp_max = rwal["clamp_max"].as_f64().unwrap_or(170.0) as f32;
     let clamp_range = (clamp_min, clamp_max);
-    
+
     let accent_color = rwal["accent_color"].as_u64().unwrap_or(4) as u32;
     let colors = rwal["rwal_colors"].as_u64().unwrap_or(7) as u32;
 
     let order = match rwal["order_by"].as_str().unwrap_or("h") {
-        "s" | "S" => {OrderBy::Saturation},
-        "v" | "V" | "b" | "B" => {OrderBy::Brightness},
-        _ => {OrderBy::Hue},
+        "s" | "S" => OrderBy::Saturation,
+        "v" | "V" | "b" | "B" => OrderBy::Brightness,
+        _ => OrderBy::Hue,
     };
 
-    Some(RwalParams::new(thumb_range, clamp_range, accent_color, colors, order))
+    Some(RwalParams::new(
+        thumb_range,
+        clamp_range,
+        accent_color,
+        colors,
+        order,
+    ))
 }
 
 fn read_image_operations(value: &Value) -> Option<ImageOperations> {
@@ -160,17 +165,19 @@ fn read_image_operations(value: &Value) -> Option<ImageOperations> {
     let flip_h = impg["flip_h"].as_bool().unwrap_or(false);
     let flip_v = impg["flip_v"].as_bool().unwrap_or(false);
 
-    Some(ImageOperations::new(contrast, brightness, hue, blur, invert, flip_h, flip_v))
+    Some(ImageOperations::new(
+        contrast, brightness, hue, blur, invert, flip_h, flip_v,
+    ))
 }
 
 pub trait JsonString {
-    fn json(& self) -> String {
+    fn json(&self) -> String {
         String::new()
     }
 }
 
 impl JsonString for Display {
-    fn json(& self) -> String {
+    fn json(&self) -> String {
         format!(
             "{{\"name\":\"{}\",\"w\":{},\"h\":{},\"x\":{},\"y\":{}}}",
             self.name(),
@@ -183,55 +190,43 @@ impl JsonString for Display {
 }
 
 impl JsonString for Vec<Display> {
-    fn json(& self) -> String {
-        let json_strings: Vec<String> = self.iter()
-            .map(|d| d.json())
-            .collect();
+    fn json(&self) -> String {
+        let json_strings: Vec<String> = self.iter().map(|d| d.json()).collect();
 
         format!("[{}]", json_strings.join(","))
     }
 }
 
 impl JsonString for Template {
-    fn json(& self) -> String {
-        format!(
-            "\"{}\"",
-            self.self_path
-        )
+    fn json(&self) -> String {
+        format!("\"{}\"", self.self_path)
     }
 }
 
 impl JsonString for String {
-    fn json(& self) -> String {
-        format!(
-            "\"{}\"",
-            self
-        )
+    fn json(&self) -> String {
+        format!("\"{}\"", self)
     }
 }
 
 impl JsonString for Vec<Template> {
-    fn json(& self) -> String {
-        let json_strings: Vec<String> = self.into_iter()
-            .map(|t| t.json())
-            .collect();
+    fn json(&self) -> String {
+        let json_strings: Vec<String> = self.into_iter().map(|t| t.json()).collect();
 
         format!("[{}]", json_strings.join(","))
     }
 }
 
 impl JsonString for Vec<String> {
-    fn json(& self) -> String {
-        let json_strings: Vec<String> = self.into_iter()
-            .map(|t| t.json())
-            .collect();
+    fn json(&self) -> String {
+        let json_strings: Vec<String> = self.into_iter().map(|t| t.json()).collect();
 
         format!("[{}]", json_strings.join(","))
     }
 }
 
 impl JsonString for ImageOperations {
-    fn json(& self) -> String {
+    fn json(&self) -> String {
         format!(
             "{{\"contrast\":{},\"brightness\":{},\"huerotate\":{},\"blur\":{},\"invert\":{},\"flip_h\":{},\"flip_v\":{}}}",
             self.contrast,
@@ -246,7 +241,7 @@ impl JsonString for ImageOperations {
 }
 
 impl JsonString for RwalParams {
-    fn json(& self) -> String {
+    fn json(&self) -> String {
         format!(
             "{{\"thumb_w\":{},\"thumb_h\":{},\"accent_color\":{},\"clamp_min\":{},\"clamp_max\":{}}}",
             self.thumb_range.0,
@@ -259,7 +254,7 @@ impl JsonString for RwalParams {
 }
 
 impl JsonString for Config {
-    fn json(& self) -> String {
+    fn json(&self) -> String {
         format!(
             "{{\"displays\":{},\"templates\":{},\"impg\":{},\"rwal\":{}}}",
             {
@@ -295,11 +290,10 @@ impl JsonString for Config {
 }
 
 impl JsonString for WCacheInfo {
-    fn json(& self) -> String {
+    fn json(&self) -> String {
         format!(
             "{{\"display\":\"{}\",\"path\":\"{}\"}}",
-            self.display_name,
-            self.path
+            self.display_name, self.path
         )
     }
 }

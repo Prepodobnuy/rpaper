@@ -1,5 +1,5 @@
-use std::time::SystemTime;
 use chrono::{DateTime, Utc};
+use std::time::SystemTime;
 
 const RESET: &str = "\x1b[0m";
 
@@ -22,41 +22,17 @@ fn get_datetime() -> String {
 }
 
 pub fn log(message: &str) {
-    println!(
-        "{}LOG{} {} {}",
-        BLUE,
-        RESET, 
-        get_datetime(), 
-        message
-    );
+    println!("{}LOG{} {} {}", BLUE, RESET, get_datetime(), message);
 }
 
 pub fn info(message: &str) {
-    println!(
-        "{}INFO{} {} {}",
-        MAGENTA,
-        RESET, 
-        get_datetime(), 
-        message
-    );
+    println!("{}INFO{} {} {}", MAGENTA, RESET, get_datetime(), message);
 }
 
 pub fn warn(message: &str) {
-    println!(
-        "{}WARN{} {} {}",
-        YELLOW,
-        RESET, 
-        get_datetime(), 
-        message
-    );
+    println!("{}WARN{} {} {}", YELLOW, RESET, get_datetime(), message);
 }
 
 pub fn err(message: &str) {
-    println!(
-        "{}ERR{} {} {}",
-        RED,
-        RESET, 
-        get_datetime(), 
-        message
-    );
+    println!("{}ERR{} {} {}", RED, RESET, get_datetime(), message);
 }

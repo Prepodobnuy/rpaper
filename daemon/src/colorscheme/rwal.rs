@@ -2,12 +2,12 @@ use std::cmp::Ordering;
 use std::fs;
 use std::path::Path;
 
+use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 use image::imageops::FilterType::Nearest;
 use image::{self, RgbImage};
 use kmeans_colors::{get_kmeans, Kmeans};
 use palette::cast::from_component_slice;
 use palette::{IntoColor, Lab, Srgb};
-use color_space::{Hsv as HSV, Lab as LAB, Rgb as RGB};
 
 use crate::logger::logger::warn;
 use crate::wallpaper::display::ImageOperations;
@@ -48,7 +48,7 @@ impl RwalParams {
 }
 
 fn get_thumbed_image(image_path: &str, image_ops: &ImageOperations, w: u32, h: u32) -> RgbImage {
-    if let Ok( mut _image) = image::open(image_path) {
+    if let Ok(mut _image) = image::open(image_path) {
         _image = _image.resize_exact(w, h, Nearest);
         if image_ops.contrast != 0.0 {
             _image = _image.adjust_contrast(image_ops.contrast)
@@ -77,7 +77,12 @@ fn get_thumbed_image(image_path: &str, image_ops: &ImageOperations, w: u32, h: u
     }
 }
 
-pub fn run_rwal(image_path: &str, color_scheme_path: &str, rwal_params: &RwalParams, image_ops: &ImageOperations) -> Vec<String> {
+pub fn run_rwal(
+    image_path: &str,
+    color_scheme_path: &str,
+    rwal_params: &RwalParams,
+    image_ops: &ImageOperations,
+) -> Vec<String> {
     if !Path::new(color_scheme_path).exists() {
         cache_rwal(image_path, color_scheme_path, rwal_params, image_ops);
     }
@@ -88,26 +93,31 @@ pub fn run_rwal(image_path: &str, color_scheme_path: &str, rwal_params: &RwalPar
 
     if let Ok(colors) = fs::read_to_string(expand_user(COLORS_PATH)) {
         return colors.lines().map(|line| line.to_string()).collect();
-    }
-    else {
+    } else {
         Vec::new()
     }
 }
 
-pub fn cache_rwal(image_path: &str, color_scheme_path: &str, rwal_params: &RwalParams, image_ops: &ImageOperations) {
+pub fn cache_rwal(
+    image_path: &str,
+    color_scheme_path: &str,
+    rwal_params: &RwalParams,
+    image_ops: &ImageOperations,
+) {
     let image = &get_thumbed_image(
-        image_path, 
-        image_ops, 
-        rwal_params.thumb_range.0, 
+        image_path,
+        image_ops,
+        rwal_params.thumb_range.0,
         rwal_params.thumb_range.1,
     );
-    
+
     let pallete = get_pallete(
-        image, 
+        image,
         rwal_params.accent_color,
         rwal_params.clamp_range,
         rwal_params.order,
-    ).join("\n");
+    )
+    .join("\n");
 
     fs::write(color_scheme_path, &pallete).unwrap();
     fs::write(expand_user(COLORS_PATH), &pallete).unwrap();
@@ -154,16 +164,17 @@ fn merge_rgb(f_color: RGB, s_color: RGB) -> RGB {
     RGB::new(r, g, b)
 }
 
-fn get_pallete(image: &RgbImage, accent_color: u32, clamp_range: (f32, f32), order: OrderBy) -> Vec<String> {
+fn get_pallete(
+    image: &RgbImage,
+    accent_color: u32,
+    clamp_range: (f32, f32),
+    order: OrderBy,
+) -> Vec<String> {
     let colors = get_colors(image);
     let mut clamped_colors = Vec::new();
 
     for color in &colors {
-        clamped_colors.extend(clamp_color(
-            color.clone(), 
-            clamp_range.0, 
-            clamp_range.1,
-        ))
+        clamped_colors.extend(clamp_color(color.clone(), clamp_range.0, clamp_range.1))
     }
 
     let colors_slice = clamped_colors.as_slice();
@@ -201,23 +212,30 @@ fn prepare_colors(clusters: Kmeans<Lab>, accent_color: u32, order: OrderBy) -> V
         // sort by brightness
         OrderBy::Brightness => {
             hsv_colors.sort_by(|a, b| a.v.partial_cmp(&b.v).unwrap_or(Ordering::Equal));
-        },
+        }
     }
 
-    let mut rgb_colors = hsv_colors.into_iter().map(|hsv| {
-        RGB::from(hsv)
-    }).collect::<Vec<RGB>>();
+    let mut rgb_colors = hsv_colors
+        .into_iter()
+        .map(|hsv| RGB::from(hsv))
+        .collect::<Vec<RGB>>();
 
     if rgb_colors.len() < 6 {
-        warn(&format!("The number of generated colors is not enough!. Needed colors: 5\nGenerated colors: {}", rgb_colors.len()));
+        warn(&format!(
+            "The number of generated colors is not enough!. Needed colors: 5\nGenerated colors: {}",
+            rgb_colors.len()
+        ));
         for _ in 0..5 - rgb_colors.len() {
             rgb_colors.push(RGB::new(100.0, 100.0, 100.0));
         }
     }
 
     let accent = rgb_colors[{
-        if accent_color > 5 {5}
-        else {accent_color}
+        if accent_color > 5 {
+            5
+        } else {
+            accent_color
+        }
     } as usize];
     let bg_color = merge_rgb(RGB::new(0.0, 0.0, 0.0), accent.clone());
     let fg_color = merge_rgb(RGB::new(255.0, 255.0, 255.0), accent.clone());
@@ -246,8 +264,8 @@ fn prepare_colors(clusters: Kmeans<Lab>, accent_color: u32, order: OrderBy) -> V
         _tmp = format!("#{}{}{}", h_r, h_g, h_b);
         res.push(_tmp)
     }
-    
+
     res.extend(res.clone());
-    
+
     res
 }
