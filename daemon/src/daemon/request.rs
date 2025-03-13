@@ -5,7 +5,6 @@ use std::{fs, thread};
 
 use crate::colorscheme::rwal::{OrderBy, RwalParams};
 use crate::colorscheme::scheme::{cache_scheme, get_cached_colors, set_scheme};
-use crate::colorscheme::template::Template;
 use crate::logger::logger::log;
 use crate::wallpaper::display::{
     cache_wallpaper, get_cached_image_names, get_cached_image_paths, set_wallpaper, Display,

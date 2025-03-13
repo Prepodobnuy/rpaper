@@ -1,6 +1,7 @@
 mod colorscheme;
 mod daemon;
 mod logger;
+mod template;
 mod wallpaper;
 
 use std::path::{Path, PathBuf};

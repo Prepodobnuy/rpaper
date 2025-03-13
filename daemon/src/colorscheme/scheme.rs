@@ -2,13 +2,10 @@ use std::{path::Path, thread};
 
 use crate::{
     daemon::config::Config, encode_string, expand_user, get_image_name, logger::logger::log,
-    wallpaper::display::ImageOperations, COLORS_DIR,
+    template::template::Template, wallpaper::display::ImageOperations, COLORS_DIR,
 };
 
-use super::{
-    rwal::{cache_rwal, run_rwal, OrderBy, RwalParams},
-    template::Template,
-};
+use super::rwal::{cache_rwal, run_rwal, OrderBy, RwalParams};
 
 pub fn set_scheme(config: &Config, image_path: &str) {
     if let Some(image_ops) = &config.image_operations {

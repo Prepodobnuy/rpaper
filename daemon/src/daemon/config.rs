@@ -6,8 +6,8 @@ use serde_json::Value;
 
 use crate::colorscheme::rwal::OrderBy;
 use crate::colorscheme::rwal::RwalParams;
-use crate::colorscheme::template::Template;
 use crate::expand_user;
+use crate::template::template::Template;
 use crate::wallpaper::display::Display;
 use crate::wallpaper::display::ImageOperations;
 use crate::wallpaper::display::WCacheInfo;
