@@ -132,10 +132,9 @@ Rpaper is still **under active development**, so don't be surprised that after t
 - make it easies to rice linux
 - make it easies to manage dotfiles
 ## Features
-- uniqueness (analogues of the program are bash scripts with pyval which are very long and tedious to write)
-- much faster than bash scripts with pyval
-- configurable color pallete generator
-- easy to use template system
+- unique
+- easy to use
+- **configurable** color pallete generator (rwal)
 - written on rust
 - idk
 ## How to
