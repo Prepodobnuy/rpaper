@@ -150,8 +150,8 @@ feel free
 - ~~implement sane --help for client~~
 - ~~readme~~
 - ~~daemon unix socket listener~~
-- restructure rwal code
-- implement semantic (red, green, yellow, blue, purple, aqua) palette ordering
+- ~~restructure rwal code~~
+- (WIP) implement semantic (red, green, yellow, blue, purple, aqua) palette ordering
 - restructure listener architecture (use json instead of shitty tags)
 - daemon http listener
 - client http
