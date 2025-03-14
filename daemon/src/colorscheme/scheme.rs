@@ -1,11 +1,19 @@
 use std::{path::Path, thread};
 
-use crate::{
-    daemon::config::Config, encode_string, expand_user, get_image_name, logger::logger::log,
-    template::template::Template, wallpaper::display::ImageOperations, COLORS_DIR,
-};
+use crate::colorscheme::rwal::rwal_params::OrderBy;
+use crate::daemon::config::Config;
+use crate::encode_string;
+use crate::expand_user;
+use crate::get_image_name;
+use crate::logger::logger::{err, log};
+use crate::template::template::Template;
+use crate::wallpaper::display::ImageOperations;
+use crate::COLORS_DIR;
 
-use super::rwal::{cache_rwal, run_rwal, OrderBy, RwalParams};
+use super::rwal::{
+    actions::{cache_rwal, run_rwal},
+    rwal_params::RwalParams,
+};
 
 pub fn set_scheme(config: &Config, image_path: &str) {
     if let Some(image_ops) = &config.image_operations {
@@ -45,34 +53,54 @@ pub fn set_scheme(config: &Config, image_path: &str) {
 }
 
 pub fn cache_scheme(config: &Config, image_path: &str) {
-    if let Some(image_ops) = &config.image_operations {
-        if let Some(rwal_params) = &config.rwal_params {
-            log("Caching colorscheme...");
-            cache_rwal(
-                image_path,
-                &get_cache_path(image_ops, rwal_params, image_path),
-                rwal_params,
-                image_ops,
-            );
-        }
+    if config.image_operations.is_none() {
+        err("Failed to cache colorscheme.");
+        err("Image operations is None.");
+        return;
     }
+    if config.rwal_params.is_none() {
+        err("Failed to cache colorscheme.");
+        err("Rwal params is None.");
+        return;
+    }
+
+    let image_ops = config.image_operations.as_ref().unwrap();
+    let rwal_params = config.rwal_params.as_ref().unwrap();
+
+    log("Caching colorscheme...");
+    cache_rwal(
+        image_path,
+        &get_cache_path(image_ops, rwal_params, image_path),
+        rwal_params,
+        image_ops,
+    );
 }
 
 pub fn get_cached_colors(config: &Config, image_path: &str) -> Option<Vec<String>> {
-    if let Some(image_ops) = &config.image_operations {
-        if let Some(rwal_params) = &config.rwal_params {
-            if !Path::new(&get_cache_path(image_ops, rwal_params, image_path)).exists() {
-                cache_scheme(config, image_path);
-            }
-            return Some(run_rwal(
-                image_path,
-                &get_cache_path(image_ops, rwal_params, image_path),
-                rwal_params,
-                image_ops,
-            ));
-        }
+    if config.image_operations.is_none() {
+        err("Failed to cache colorscheme.");
+        err("Image operations is None.");
+        return None;
     }
-    None
+    if config.rwal_params.is_none() {
+        err("Failed to cache colorscheme.");
+        err("Rwal params is None.");
+        return None;
+    }
+
+    let image_ops = config.image_operations.as_ref().unwrap();
+    let rwal_params = config.rwal_params.as_ref().unwrap();
+
+    if !Path::new(&get_cache_path(image_ops, rwal_params, image_path)).exists() {
+        cache_scheme(config, image_path);
+    }
+
+    Some(run_rwal(
+        image_path,
+        &get_cache_path(image_ops, rwal_params, image_path),
+        rwal_params,
+        image_ops,
+    ))
 }
 
 fn get_cache_path(
@@ -94,6 +122,7 @@ fn get_cache_path(
                 OrderBy::Hue => "H",
                 OrderBy::Saturation => "S",
                 OrderBy::Brightness => "V",
+                OrderBy::Semantic => "sem",
             },
             rwal_params.accent_color,
             rwal_params.clamp_range.0,

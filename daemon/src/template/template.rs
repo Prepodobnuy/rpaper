@@ -2,8 +2,8 @@ use std::fs;
 use std::path;
 use std::str::FromStr;
 
-use crate::colorscheme::colors::Color;
-use crate::colorscheme::colors::ColorValue;
+use crate::colorscheme::colors::color::Color;
+use crate::colorscheme::colorvariable::ColorValue;
 use crate::{expand_user, spawn, system};
 
 use super::parser::collect_colors;
@@ -73,8 +73,8 @@ impl Template {
 
                     if let Some(color) = &color_var.constant_value {
                         if let Color::HEX(hex) = color {
-                            lighter.set_value_from_hex(&hex.value);
-                            darker.set_value_from_hex(&hex.value);
+                            lighter.set_value_from_hex(&hex.0);
+                            darker.set_value_from_hex(&hex.0);
                         } else if let Color::RGB(rgb) = color {
                             lighter.set_value_from_rgb(rgb.r, rgb.g, rgb.b);
                             darker.set_value_from_rgb(rgb.r, rgb.g, rgb.b);
@@ -100,7 +100,7 @@ impl Template {
 
             if let Some(color) = &color_var.constant_value {
                 if let Color::HEX(hex) = color {
-                    color_value.set_value_from_hex(&hex.value);
+                    color_value.set_value_from_hex(&hex.0);
                 } else if let Color::RGB(rgb) = color {
                     color_value.set_value_from_rgb(rgb.r, rgb.g, rgb.b);
                 }

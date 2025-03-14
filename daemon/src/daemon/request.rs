@@ -3,7 +3,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 use std::{fs, thread};
 
-use crate::colorscheme::rwal::{OrderBy, RwalParams};
+use crate::colorscheme::rwal::rwal_params::{OrderBy, RwalParams};
 use crate::colorscheme::scheme::{cache_scheme, get_cached_colors, set_scheme};
 use crate::logger::logger::log;
 use crate::wallpaper::display::{
@@ -367,6 +367,9 @@ fn get_rwal_order(tags: &Vec<String>, index: usize) -> Option<OrderBy> {
                 }
                 "v" | "V" | "b" | "B" => {
                     return Some(OrderBy::Brightness);
+                }
+                "sem" | "semantic" => {
+                    return Some(OrderBy::Semantic);
                 }
                 _ => {}
             }

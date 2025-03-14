@@ -1,7 +1,7 @@
 use std::fs;
 
 use crate::{
-    colorscheme::colors::{Color, HEX, RGB},
+    colorscheme::colors::{color::Color, hex::HEX, rgb::RGB},
     expand_user,
 };
 
@@ -117,7 +117,7 @@ pub fn collect_colors(caption: &Vec<String>) -> Vec<ColorVariable> {
             continue;
         }
 
-        let hex = Color::HEX(HEX { value });
+        let hex = Color::HEX(HEX(value));
         let brightness = 0;
         let invert = false;
 

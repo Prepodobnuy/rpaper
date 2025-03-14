@@ -75,21 +75,3 @@ impl ColorValue {
         ColorValue::rgb_to_hex(self.r, self.g, self.b)
     }
 }
-
-#[derive(Clone)]
-pub struct RGB {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-#[derive(Clone)]
-pub struct HEX {
-    pub value: String,
-}
-
-#[derive(Clone)]
-pub enum Color {
-    RGB(RGB),
-    HEX(HEX),
-}

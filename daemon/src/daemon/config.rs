@@ -4,8 +4,8 @@ use std::path;
 
 use serde_json::Value;
 
-use crate::colorscheme::rwal::OrderBy;
-use crate::colorscheme::rwal::RwalParams;
+use crate::colorscheme::rwal::rwal_params::OrderBy;
+use crate::colorscheme::rwal::rwal_params::RwalParams;
 use crate::expand_user;
 use crate::template::template::Template;
 use crate::wallpaper::display::Display;
@@ -142,6 +142,7 @@ fn read_rwal_params(value: &Value) -> Option<RwalParams> {
     let order = match rwal["order_by"].as_str().unwrap_or("h") {
         "s" | "S" => OrderBy::Saturation,
         "v" | "V" | "b" | "B" => OrderBy::Brightness,
+        "sem" | "semantic" => OrderBy::Semantic,
         _ => OrderBy::Hue,
     };
 
