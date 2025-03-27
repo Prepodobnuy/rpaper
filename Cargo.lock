@@ -224,6 +224,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52fdfaf2bee6357023bf7f95b15a8ef0b82759d2bce705cc45efcae9ae10f0ff"
 
 [[package]]
+name = "common"
+version = "0.1.28012025"
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
