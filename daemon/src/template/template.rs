@@ -1,6 +1,7 @@
 use std::fs;
 use std::path;
 use std::str::FromStr;
+use std::thread;
 
 use crate::colorscheme::colors::color::Color;
 use crate::colorscheme::colorvariable::ColorValue;
@@ -139,11 +140,14 @@ impl Template {
     }
 
     fn exec_after(&self) {
-        for command in &self.commands_after {
-            if !command.is_empty() {
-                spawn(command);
+        let commands = self.commands_after.clone();
+        let thread = thread::spawn(move || {
+            for command in &commands {
+                if !command.is_empty() {
+                    system(command);
+                }
             }
-        }
+        });
     }
 }
 
