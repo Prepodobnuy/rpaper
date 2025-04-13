@@ -4,12 +4,14 @@ mod logger;
 mod template;
 mod wallpaper;
 
+use std::env;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 use std::process::Command;
+use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::{env, thread};
 
-use logger::logger::info;
+use nix::unistd::fork;
 use sha2::{Digest, Sha256};
 
 use crate::daemon::daemon::Daemon;
@@ -91,14 +93,56 @@ pub fn spawn(command: &str) {
         .expect("");
 }
 
-fn main() {
+fn main() -> Result<(), ()> {
     if Path::new(SOCKET_PATH).exists() {
         let _ = std::fs::remove_file(SOCKET_PATH);
         thread::sleep(Duration::from_millis(20));
     }
 
-    let mut daemon = Daemon::new();
-    daemon.mainloop();
+    let opts = Options::new();
 
-    info("Exiting...");
+    if opts.detach {
+        match unsafe { fork().unwrap() } {
+            nix::unistd::ForkResult::Parent { child: _ } => exit(0),
+            nix::unistd::ForkResult::Child => {}
+        }
+    }
+
+    let mut daemon = Daemon::new(opts.init_path);
+    daemon.mainloop();
+    Ok(())
+}
+
+struct Options {
+    detach: bool,
+    init_path: Option<String>,
+}
+
+impl Options {
+    pub fn new() -> Self {
+        let args = std::env::args().collect::<Vec<String>>();
+
+        let detach = args.contains(&"-d".to_string());
+        let mut init_path: Option<String> = None;
+
+        if let Some(arg) = take_argument_after("-i", &args) {
+            if std::path::Path::new(&expand_user(&arg)).exists() {
+                init_path = Some(expand_user(&arg))
+            }
+        }
+
+        Options { detach, init_path }
+    }
+}
+
+fn take_argument_after(arg: &str, args: &Vec<String>) -> Option<String> {
+    for (i, a) in args.iter().enumerate() {
+        if i == 0 {
+            continue;
+        }
+        if args[i - 1] == arg {
+            return Some(a.to_string());
+        }
+    }
+    None
 }
