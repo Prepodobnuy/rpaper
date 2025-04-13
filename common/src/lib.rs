@@ -2,10 +2,10 @@ pub mod display;
 pub use display::Display;
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Request {
     pub image: Option<String>,
-    pub cache: bool,
+    pub affect_all: bool,
     pub w_set: bool,
     pub w_cache: bool,
     pub c_set: bool,
@@ -14,22 +14,18 @@ pub struct Request {
     pub templates: Option<Vec<String>>,
     pub resize_alg: Option<String>,
     pub set_command: Option<String>,
-    pub contrast: Option<i32>,
-    pub brightness: Option<f32>,
+    pub contrast: Option<f32>,
+    pub brightness: Option<i32>,
     pub hue: Option<i32>,
     pub blur: Option<f32>,
-    pub invert: bool,
-    pub flip_h: bool,
-    pub flip_v: bool,
+    pub invert: Option<bool>,
+    pub flip_h: Option<bool>,
+    pub flip_v: Option<bool>,
     pub rwal_thumb: Option<String>,
     pub rwal_clamp: Option<String>,
     pub rwal_accent: Option<u32>,
     pub rwal_order: Option<String>,
-    pub get_displays: bool,
-    pub get_templates: bool,
     pub get_current_colorscheme: bool,
-    pub get_image_ops: bool,
-    pub get_rwal_params: bool,
     pub get_config: bool,
     pub get_w_cache: bool,
     pub get_c_cache: bool,
@@ -40,21 +36,35 @@ pub struct Request {
 impl Request {
     pub fn from_args(input: Vec<String>) -> Self {
         // booleans
+        let affect_all = input.contains(&"-A".to_string());
         let w_set = input.contains(&"-S".to_string());
         let w_cache = input.contains(&"-W".to_string()) && !w_set;
         let c_set = input.contains(&"-T".to_string());
         let c_cache = input.contains(&"-C".to_string()) && !c_set;
-        let cache = input.contains(&"--cache".to_string());
 
-        let invert = input.contains(&"--invert".to_string());
-        let flip_h = input.contains(&"--fliph".to_string());
-        let flip_v = input.contains(&"--flipv".to_string());
+        let invert = {
+            if input.contains(&"--invert".to_string()) {
+                Some(true)
+            } else {
+                None
+            }
+        };
+        let flip_h = {
+            if input.contains(&"--fliph".to_string()) {
+                Some(true)
+            } else {
+                None
+            }
+        };
+        let flip_v = {
+            if input.contains(&"--flipv".to_string()) {
+                Some(true)
+            } else {
+                None
+            }
+        };
 
-        let get_displays = input.contains(&"--get-displays".to_string());
-        let get_templates = input.contains(&"--get-templates".to_string());
         let get_current_colorscheme = input.contains(&"--get-current-scheme".to_string());
-        let get_image_ops = input.contains(&"--get-image-ops".to_string());
-        let get_rwal_params = input.contains(&"--get-rwal-params".to_string());
         let get_config = input.contains(&"--get-config".to_string());
         let get_w_cache = input.contains(&"--get-w-cache".to_string());
         let get_c_cache = input.contains(&"--get-c-cache".to_string());
@@ -69,8 +79,8 @@ impl Request {
         let rwal_clamp = get_value::<String>(&input, "--clamp");
         let rwal_order = get_value::<String>(&input, "--order");
         // nums
-        let contrast = get_value::<i32>(&input, "--contrast");
-        let brightness = get_value::<f32>(&input, "--brightness");
+        let contrast = get_value::<f32>(&input, "--contrast");
+        let brightness = get_value::<i32>(&input, "--brightness");
         let hue = get_value::<i32>(&input, "--hue");
         let blur = get_value::<f32>(&input, "--blur");
         let rwal_accent = get_value::<u32>(&input, "--accent");
@@ -79,12 +89,12 @@ impl Request {
         let templates = get_templates_value(&input, "--templates");
 
         Self {
+            image,
+            affect_all,
             w_set,
             w_cache,
             c_set,
             c_cache,
-            cache,
-            image,
             set_command,
             contrast,
             brightness,
@@ -100,11 +110,7 @@ impl Request {
             rwal_clamp,
             rwal_accent,
             rwal_order,
-            get_displays,
-            get_templates,
             get_current_colorscheme,
-            get_image_ops,
-            get_rwal_params,
             get_config,
             get_w_cache,
             get_c_cache,

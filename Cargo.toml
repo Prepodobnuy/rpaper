@@ -3,6 +3,9 @@ resolver = "2"
 members = ["client", "daemon", "common"]
 default-members = ["client", "daemon"]
 
+[workspace.dependencies]
+common = { path = "common" }
+
 [workspace.package]
 edition = "2021"
 rust-version = "1.80"

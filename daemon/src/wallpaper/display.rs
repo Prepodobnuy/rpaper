@@ -1,73 +1,14 @@
 use std::path::Path;
-use std::str::FromStr;
 use std::thread;
 
-use image::imageops::{CatmullRom, Gaussian, Lanczos3, Nearest, Triangle};
-use image::{self, DynamicImage};
-
 use crate::daemon::config::Config;
-use crate::logger::logger::log;
+use crate::wallpaper::image::ImageOperations;
 use crate::{encode_string, expand_user, get_image_name, spawn, WALLPAPERS_DIR};
+use common::display::Display;
 
-#[derive(Clone)]
-pub struct Display {
-    w: u32,
-    h: u32,
-    x: u32,
-    y: u32,
-    name: String,
-}
+use super::image::get_image;
 
-impl FromStr for Display {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut name: String = String::new();
-        let mut w: u32 = 0;
-        let mut h: u32 = 0;
-        let mut x: u32 = 0;
-        let mut y: u32 = 0;
-
-        if s.split(":").collect::<Vec<_>>().len() != 5 {
-            return Err(String::from("Unable to parse string"));
-        }
-
-        s.split(":").enumerate().for_each(|(i, param)| match i {
-            0 => name = String::from(param),
-            1 => w = param.parse().unwrap_or(0),
-            2 => h = param.parse().unwrap_or(0),
-            3 => x = param.parse().unwrap_or(0),
-            4 => y = param.parse().unwrap_or(0),
-            _ => {}
-        });
-
-        Ok(Self { w, h, x, y, name })
-    }
-}
-
-impl Display {
-    pub fn new(w: u32, h: u32, x: u32, y: u32, name: String) -> Self {
-        Display { w, h, x, y, name }
-    }
-
-    pub fn name(&self) -> String {
-        self.name.clone()
-    }
-    pub fn width(&self) -> u32 {
-        self.w
-    }
-    pub fn height(&self) -> u32 {
-        self.h
-    }
-    pub fn x(&self) -> u32 {
-        self.x
-    }
-    pub fn y(&self) -> u32 {
-        self.y
-    }
-}
-
-fn displays_max_width(displays: &Vec<Display>) -> u32 {
+pub fn displays_max_width(displays: &Vec<Display>) -> u32 {
     let mut res: u32 = 0;
     for display in displays {
         if display.w + display.x > res {
@@ -78,7 +19,7 @@ fn displays_max_width(displays: &Vec<Display>) -> u32 {
     res
 }
 
-fn displays_max_height(displays: &Vec<Display>) -> u32 {
+pub fn displays_max_height(displays: &Vec<Display>) -> u32 {
     let mut res: u32 = 0;
     for display in displays {
         if display.h + display.y > res {
@@ -89,55 +30,7 @@ fn displays_max_height(displays: &Vec<Display>) -> u32 {
     res
 }
 
-#[derive(Clone)]
-pub struct WCacheInfo {
-    pub display_name: String,
-    pub path: String,
-}
-
-impl WCacheInfo {
-    pub fn new(display_name: &str, path: &str) -> Self {
-        Self {
-            display_name: display_name.to_string(),
-            path: path.to_string(),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct ImageOperations {
-    pub contrast: f32,
-    pub brightness: i32,
-    pub hue: i32,
-    pub blur: f32,
-    pub invert: bool,
-    pub flip_h: bool,
-    pub flip_v: bool,
-}
-
-impl ImageOperations {
-    pub fn new(
-        contrast: f32,
-        brightness: i32,
-        hue: i32,
-        blur: f32,
-        invert: bool,
-        flip_h: bool,
-        flip_v: bool,
-    ) -> Self {
-        ImageOperations {
-            contrast,
-            brightness,
-            hue,
-            blur,
-            invert,
-            flip_h,
-            flip_v,
-        }
-    }
-}
-
-fn calculate_width_height(
+pub fn calculate_width_height(
     image_width: u32,
     image_height: u32,
     max_width: u32,
@@ -156,58 +49,6 @@ fn calculate_width_height(
     }
 
     return (width as u32, height as u32);
-}
-
-fn get_image(
-    img_path: &str,
-    image_ops: &ImageOperations,
-    displays: &Vec<Display>,
-    image_resize_algorithm: &str,
-) -> DynamicImage {
-    let displays_max_width: u32 = displays_max_width(&displays);
-    let displays_max_height: u32 = displays_max_height(&displays);
-
-    let img_ra = match image_resize_algorithm {
-        "Nearest" => Nearest,
-        "CatmullRom" => CatmullRom,
-        "Gaussian" => Gaussian,
-        "Lanczos3" => Lanczos3,
-        _ => Triangle,
-    };
-
-    if let Ok(mut _image) = image::open(img_path) {
-        let (nw, nh) = calculate_width_height(
-            _image.width(),
-            _image.height(),
-            displays_max_width,
-            displays_max_height,
-        );
-        _image = _image.resize(nw, nh, img_ra);
-        if image_ops.contrast != 0.0 {
-            _image = _image.adjust_contrast(image_ops.contrast)
-        }
-        if image_ops.brightness != 0 {
-            _image = _image.brighten(image_ops.brightness)
-        }
-        if image_ops.hue != 0 {
-            _image = _image.huerotate(image_ops.hue)
-        }
-        if image_ops.blur != 0.0 {
-            _image = _image.blur(image_ops.blur)
-        }
-        if image_ops.flip_h {
-            _image = _image.fliph()
-        }
-        if image_ops.flip_v {
-            _image = _image.flipv()
-        }
-        if image_ops.invert {
-            _image.invert()
-        }
-        _image
-    } else {
-        DynamicImage::new(1000, 1000, image::ColorType::Rgb8)
-    }
 }
 
 fn get_file_extension(file_name: &str) -> &str {
@@ -266,7 +107,6 @@ pub fn cache_wallpaper(config: &Config, image_path: &str) {
     if let Some(displays) = &config.displays {
         if let Some(image_ops) = &config.image_operations {
             if let Some(image_resize_algorithm) = &config.resize_algorithm {
-                log("Caching wallpaper...");
                 let cache_paths = get_cached_image_paths(
                     &get_cached_image_names(displays, image_ops, image_path),
                     WALLPAPERS_DIR,
@@ -303,7 +143,7 @@ fn parse_set_command(
     display: &str,
 ) -> String {
     command
-        .replace("{image}", image_path)
+        .replace("{image}", &expand_user(image_path))
         .replace("{default_image}", original_image_path)
         .replace("{display}", display)
 }
@@ -311,7 +151,7 @@ fn parse_set_command(
 pub fn set_wallpaper(config: &Config, image_path: &str) {
     if let Some(displays) = &config.displays {
         if let Some(image_ops) = &config.image_operations {
-            if let Some(set_command) = &config.wallpaper_set_command {
+            if let Some(set_command) = &config.set_command {
                 let cache_paths = get_cached_image_paths(
                     &get_cached_image_names(displays, image_ops, image_path),
                     WALLPAPERS_DIR,
@@ -323,8 +163,6 @@ pub fn set_wallpaper(config: &Config, image_path: &str) {
                         break;
                     }
                 }
-
-                log("Setting wallpaper...");
 
                 for (i, cache_path) in cache_paths.into_iter().enumerate() {
                     let command =
