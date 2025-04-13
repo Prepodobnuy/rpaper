@@ -7,7 +7,7 @@ use crate::expand_user;
 use crate::get_image_name;
 use crate::logger::logger::{err, log};
 use crate::template::template::Template;
-use crate::wallpaper::display::ImageOperations;
+use crate::wallpaper::image::ImageOperations;
 use crate::COLORS_DIR;
 
 use super::rwal::{
@@ -23,8 +23,6 @@ pub fn set_scheme(config: &Config, image_path: &str) {
             if !Path::new(&cache_path).exists() {
                 cache_scheme(config, image_path);
             }
-
-            log("Applying colorscheme...");
 
             let colors = run_rwal(image_path, &cache_path, rwal_params, image_ops);
 
@@ -67,7 +65,6 @@ pub fn cache_scheme(config: &Config, image_path: &str) {
     let image_ops = config.image_operations.as_ref().unwrap();
     let rwal_params = config.rwal_params.as_ref().unwrap();
 
-    log("Caching colorscheme...");
     cache_rwal(
         image_path,
         &get_cache_path(image_ops, rwal_params, image_path),
