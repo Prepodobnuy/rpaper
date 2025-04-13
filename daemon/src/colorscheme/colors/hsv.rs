@@ -14,7 +14,8 @@ impl HSV {
         HSV { h, s, v }
     }
 
-    pub fn normalize(&self) -> Self {
+    // TODO use this func
+    pub fn _normalize(&self) -> Self {
         HSV {
             h: self.h.clamp(0, 360),
             s: self.s.clamp(0, 100),
