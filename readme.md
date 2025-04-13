@@ -144,28 +144,32 @@ Rpaper is still **under active development**, so don't be surprised that after t
 ## Contributing
 feel free
 ## Todo
-- ~~abandon pywal~~
-- ~~add client arguments~~
-- ~~implement sane --help for client~~
-- ~~readme~~
-- ~~daemon unix socket listener~~
-- ~~restructure rwal code~~
-- (WIP) implement semantic (red, green, yellow, blue, purple, aqua) palette ordering
-- restructure listener architecture (use json instead of shitty tags)
-- daemon http listener
-- client http
-- daemon rpc listener
-- client rpc
-- debloat dependencies
-- video support using [mpvpaper](https://github.com/GhostNaN/mpvpaper)
-- own wayland wallpaper setter (abandon swaybg/swww/etc)
-- add diferent image setting modes (fit/fill/crop/etc)
-- implement sane --help for daemon
-- implement sane logger for daemon
-- write wiki
-- add animated files(.gif/.png/.webp) splitting support (currently they split without animation)
-- maybe abandon json format for config
-- release
+* ~~abandon pywal~~
+* ~~add client arguments~~
+* ~~implement sane --help for client~~
+* ~~readme~~
+* ~~daemon unix socket listener~~
+* ~~restructure rwal code~~
+* ~~(WIP) implement semantic (red, green, yellow, blue, purple, aqua) palette ordering~~
+* ~~restructure listener architecture (use json instead of shitty tags)~~
+* more template stuff
+  + Hsl func
+  + named configs
+  + import system
+* daemon http listener
+* client http
+* daemon rpc listener
+* client rpc
+* debloat dependencies
+* video support using [mpvpaper](https://github.com/GhostNaN/mpvpaper)
+* own wayland wallpaper setter (abandon swaybg/swww/etc)
+* add diferent image setting modes (fit/fill/crop/etc)
+* implement sane --help for daemon
+* implement sane logger for daemon
+* write wiki
+* add animated files(.gif/.png/.webp) splitting support (currently they split without animation)
+* maybe abandon json format for config
+* release
 ## Thanks to
 - [colorz](https://github.com/metakirby5/colorz) for pallete generator algorithm
 - [osu](https://github.com/ppy/osu) for the idea of ​​calling cache files by their sha256 sum
