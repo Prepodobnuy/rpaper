@@ -129,8 +129,8 @@ Also rpaper can set one wallpaper to multiple displays and grab color palette fr
 
 Rpaper is still **under active development**, so don't be surprised that after the update your pc will burn and configuration files will be sent to Microsoft servers.
 ## Goals
-- make it easies to rice linux
-- make it easies to manage dotfiles
+- make it easier to rice linux
+- make it easier to manage dotfiles
 ## Features
 - unique
 - easy to use
