@@ -5,7 +5,7 @@ use kmeans_colors::{get_kmeans, Kmeans};
 
 use color_space::{FromRgb, Hsv, Lab as CSLab, Rgb, ToRgb};
 use palette::cast::from_component_slice;
-use palette::{rgb::Rgb as PaletteRgb, IntoColor, Lab, Srgb};
+use palette::{IntoColor, Lab, Srgb};
 
 use crate::logger::logger::warn;
 
