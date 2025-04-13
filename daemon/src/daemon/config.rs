@@ -2,22 +2,23 @@ use std::fs::File;
 use std::io::Read;
 use std::path;
 
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::colorscheme::rwal::rwal_params::OrderBy;
 use crate::colorscheme::rwal::rwal_params::RwalParams;
 use crate::expand_user;
-use crate::template::template::Template;
-use crate::wallpaper::display::Display;
-use crate::wallpaper::display::ImageOperations;
-use crate::wallpaper::display::WCacheInfo;
+use crate::wallpaper::image::ImageOperations;
+use common::display::Display;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
     pub displays: Option<Vec<Display>>,
     pub templates: Option<Vec<String>>,
-    pub wallpaper_set_command: Option<String>,
+    pub set_command: Option<String>,
     pub resize_algorithm: Option<String>,
+    pub last_call_file: Option<String>,
     pub rwal_params: Option<RwalParams>,
     pub image_operations: Option<ImageOperations>,
 }
@@ -27,8 +28,9 @@ impl Config {
         Config {
             displays: None,
             templates: None,
-            wallpaper_set_command: None,
+            set_command: None,
             resize_algorithm: None,
+            last_call_file: None,
             rwal_params: None,
             image_operations: None,
         }
@@ -38,8 +40,9 @@ impl Config {
         if let Some(value) = read_value(path) {
             self.displays = read_displays(&value);
             self.templates = read_templates(&value);
-            self.wallpaper_set_command = read_wallpaper_set_command(&value);
+            self.set_command = read_wallpaper_set_command(&value);
             self.resize_algorithm = read_resize_algorithm(&value);
+            self.last_call_file = read_last_call_file(&value);
             self.rwal_params = read_rwal_params(&value);
             self.image_operations = read_image_operations(&value);
         }
@@ -49,8 +52,9 @@ impl Config {
         if let Some(value) = read_value_from_string(string) {
             self.displays = read_displays(&value);
             self.templates = read_templates(&value);
-            self.wallpaper_set_command = read_wallpaper_set_command(&value);
+            self.set_command = read_wallpaper_set_command(&value);
             self.resize_algorithm = read_resize_algorithm(&value);
+            self.last_call_file = read_last_call_file(&value);
             self.rwal_params = read_rwal_params(&value);
             self.image_operations = read_image_operations(&value);
         }
@@ -89,7 +93,7 @@ fn read_displays(value: &Value) -> Option<Vec<Display>> {
         let x = raw_display["x"].as_u64()? as u32;
         let y = raw_display["y"].as_u64()? as u32;
 
-        displays.push(Display::new(w, h, x, y, name))
+        displays.push(Display::new(name, w, h, x, y))
     }
 
     Some(displays)
@@ -112,6 +116,14 @@ fn read_templates(value: &Value) -> Option<Vec<String>> {
 fn read_wallpaper_set_command(value: &Value) -> Option<String> {
     if let Some(command) = value["wall_command"].as_str() {
         return Some(String::from(command));
+    }
+
+    None
+}
+
+fn read_last_call_file(value: &Value) -> Option<String> {
+    if let Some(path) = value["last_call_file"].as_str() {
+        return Some(expand_user(path));
     }
 
     None
@@ -171,130 +183,3 @@ fn read_image_operations(value: &Value) -> Option<ImageOperations> {
     ))
 }
 
-pub trait JsonString {
-    fn json(&self) -> String {
-        String::new()
-    }
-}
-
-impl JsonString for Display {
-    fn json(&self) -> String {
-        format!(
-            "{{\"name\":\"{}\",\"w\":{},\"h\":{},\"x\":{},\"y\":{}}}",
-            self.name(),
-            self.width(),
-            self.height(),
-            self.x(),
-            self.y(),
-        )
-    }
-}
-
-impl JsonString for Vec<Display> {
-    fn json(&self) -> String {
-        let json_strings: Vec<String> = self.iter().map(|d| d.json()).collect();
-
-        format!("[{}]", json_strings.join(","))
-    }
-}
-
-impl JsonString for Template {
-    fn json(&self) -> String {
-        format!("\"{}\"", self.self_path)
-    }
-}
-
-impl JsonString for String {
-    fn json(&self) -> String {
-        format!("\"{}\"", self)
-    }
-}
-
-impl JsonString for Vec<Template> {
-    fn json(&self) -> String {
-        let json_strings: Vec<String> = self.into_iter().map(|t| t.json()).collect();
-
-        format!("[{}]", json_strings.join(","))
-    }
-}
-
-impl JsonString for Vec<String> {
-    fn json(&self) -> String {
-        let json_strings: Vec<String> = self.into_iter().map(|t| t.json()).collect();
-
-        format!("[{}]", json_strings.join(","))
-    }
-}
-
-impl JsonString for ImageOperations {
-    fn json(&self) -> String {
-        format!(
-            "{{\"contrast\":{},\"brightness\":{},\"huerotate\":{},\"blur\":{},\"invert\":{},\"flip_h\":{},\"flip_v\":{}}}",
-            self.contrast,
-            self.brightness,
-            self.hue,
-            self.blur,
-            self.invert,
-            self.flip_h,
-            self.flip_v
-        )
-    }
-}
-
-impl JsonString for RwalParams {
-    fn json(&self) -> String {
-        format!(
-            "{{\"thumb_w\":{},\"thumb_h\":{},\"accent_color\":{},\"clamp_min\":{},\"clamp_max\":{}}}",
-            self.thumb_range.0,
-            self.thumb_range.1,
-            self.accent_color,
-            self.clamp_range.0,
-            self.clamp_range.1
-        )
-    }
-}
-
-impl JsonString for Config {
-    fn json(&self) -> String {
-        format!(
-            "{{\"displays\":{},\"templates\":{},\"impg\":{},\"rwal\":{}}}",
-            {
-                if let Some(displays) = &self.displays {
-                    displays.json()
-                } else {
-                    "[]".to_string()
-                }
-            },
-            {
-                if let Some(templates) = &self.templates {
-                    templates.json()
-                } else {
-                    "[]".to_string()
-                }
-            },
-            {
-                if let Some(image_operations) = &self.image_operations {
-                    image_operations.json()
-                } else {
-                    "{}".to_string()
-                }
-            },
-            {
-                if let Some(rwal_params) = &self.rwal_params {
-                    rwal_params.json()
-                } else {
-                    "{}".to_string()
-                }
-            }
-        )
-    }
-}
-
-impl JsonString for WCacheInfo {
-    fn json(&self) -> String {
-        format!(
-            "{{\"display\":\"{}\",\"path\":\"{}\"}}",
-            self.display_name, self.path
-        )
-    }
-}
