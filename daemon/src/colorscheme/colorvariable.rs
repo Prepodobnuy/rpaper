@@ -23,7 +23,8 @@ impl ColorValue {
         self.b = (self.b as i32 + brightness).clamp(0, 255) as u8;
     }
 
-    pub fn set_brightness(&mut self, brightness: u8) {
+    // TODO use this func
+    pub fn _set_brightness(&mut self, brightness: u8) {
         let current_brightness = ((self.r + self.g + self.b) as f32 / 3.0)
             .round()
             .clamp(0.0, 255.0) as u8;
