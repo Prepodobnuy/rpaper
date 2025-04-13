@@ -6,7 +6,6 @@ use std::thread;
 use crate::logger::logger::{err, info};
 
 use super::daemon::MpscData;
-use super::request::handle_request;
 
 pub fn start_socket_listener(
     socket_path: &str,
@@ -30,11 +29,11 @@ pub fn start_socket_listener(
                     }
 
                     let request = buffer.trim().to_string();
+                    let _ = sender.send(MpscData::SocketRequest(request));
 
-                    if let Some(response) = handle_request(&request, &sender, &listener_receiver) {
-                        if let Err(e) = stream.write_all(format!("{}\n", response).as_bytes()) {
-                            err(&format!("Failed to write to socket: {}", e));
-                        }
+                    if let Ok(MpscData::Respond(mut handler)) = listener_receiver.recv() {
+                        let respond = handler.handle().replace("\\\"", "\"");
+                        let _ = stream.write_all(respond.as_bytes());
                     }
                 }
                 Err(e) => {

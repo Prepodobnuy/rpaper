@@ -1,555 +1,388 @@
-use std::path::Path;
-use std::sync::mpsc::{self, Receiver};
-use std::time::Duration;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::{fs, thread};
 
 use crate::colorscheme::rwal::rwal_params::{OrderBy, RwalParams};
 use crate::colorscheme::scheme::{cache_scheme, get_cached_colors, set_scheme};
 use crate::logger::logger::log;
 use crate::wallpaper::display::{
-    cache_wallpaper, get_cached_image_names, get_cached_image_paths, set_wallpaper, Display,
-    ImageOperations, WCacheInfo,
+    cache_wallpaper, get_cached_image_names, get_cached_image_paths, set_wallpaper,
 };
-use crate::{expand_user, unix_timestamp, COLORS_PATH, WALLPAPERS_DIR};
+use crate::wallpaper::image::ImageOperations;
+use crate::{expand_user, unix_timestamp, WALLPAPERS_DIR};
+use common::Request;
+use rand::rng;
+use rand::seq::IndexedRandom;
+use serde_json::{json, Map, Value};
 
-use super::config::{Config, JsonString};
-use super::daemon::{InfoRequest, MpscData};
+use super::config::Config;
 
-pub struct Request {
+#[derive(Clone)]
+pub struct RequestHandler {
     config: Config,
     message: String,
 }
 
-impl Request {
+impl RequestHandler {
     pub fn new(config: Config, message: String) -> Self {
-        Request { config, message }
+        if let Some(call_file) = &config.last_call_file {
+            let _ = fs::write(call_file, &message);
+        }
+        RequestHandler { config, message }
     }
-    pub fn process(&mut self) {
-        let current_timestamp = unix_timestamp();
-        let messages: Vec<String> = self.message.split(";").map(|s| s.to_string()).collect();
 
-        for chunk in messages.chunks(2) {
-            let mut handlers = Vec::new();
-            for message in chunk {
-                let message = message.clone();
-                let mut config = self.config.clone();
+    pub fn handle_image_request(&mut self, request: &Request, respond: &mut Value) -> Result<String, String> {
+        let image_path = expand_user(&request.image.clone().unwrap());
 
-                let thread = thread::spawn(move || {
-                    let request_tags = RequestTags::new(&message);
+        if !Path::new(&image_path).exists() {
+            return Err("path do not exists".to_string());
+        }
 
-                    if let Some(displays) = request_tags.config_displays {
-                        config.displays = Some(displays)
+        if request.get_c_cache {
+            add_key_to_value(
+                respond,
+                "c_cache",
+                if let Some(colors) = get_cached_colors(&self.config, &image_path) {
+                    Value::Array(
+                        colors
+                            .iter()
+                            .map(|c| Value::String(c.clone()))
+                            .collect::<Vec<Value>>(),
+                    )
+                } else {
+                    Value::Null
+                },
+            )
+        }
+
+        if request.get_w_cache {
+            add_key_to_value(
+                respond,
+                "w_cache",
+                if let Some(displays) = &self.config.displays {
+                    if let Some(img_ops) = &self.config.image_operations {
+                        get_cached_image_paths(
+                            &get_cached_image_names(&displays, &img_ops, &image_path),
+                            &expand_user(WALLPAPERS_DIR),
+                        )
+                        .iter()
+                        .map(|el| Value::String(el.clone()))
+                        .collect()
+                    } else {
+                        Value::Null
                     }
-                    if let Some(templates) = request_tags.config_templates {
-                        config.templates = Some(templates)
-                    }
-                    if let Some(wallpaper_set_command) = request_tags.set_command {
-                        config.wallpaper_set_command = Some(wallpaper_set_command)
-                    }
-                    if let Some(resize_alg) = request_tags.config_resize_alg {
-                        config.resize_algorithm = Some(resize_alg)
-                    }
+                } else {
+                    Value::Null
+                },
+            );
+        }
 
-                    let mut rwal_params: Option<RwalParams> = None;
+        let config = collect_config_from_request(self.config.clone(), &request);
 
-                    if let Some(_rwal_params) = config.rwal_params {
-                        let mut thumb_range = _rwal_params.thumb_range;
-                        let mut clamp_range = _rwal_params.clamp_range;
-                        let mut accent_color = _rwal_params.accent_color;
-                        let mut colors = _rwal_params.colors;
-                        let mut order = _rwal_params.order;
+        if is_dir(&image_path) {
+            log(&format!("Collecting all wallpapers from {}.", &image_path));
+            let wallpapers = get_images_from_dir(&image_path);
+            let mut processed_images: u128 = 0;
+            if request.affect_all {
+                log(&format!(
+                    "Applying request for all images from {}.",
+                    &image_path
+                ));
 
-                        if let Some(thumb) = request_tags.rwal_thumb {
-                            thumb_range = thumb
-                        }
-                        if let Some(clamp) = request_tags.rwal_clamp {
-                            clamp_range = clamp
-                        }
-                        if let Some(color) = request_tags.rwal_accent {
-                            accent_color = color
-                        }
-                        if let Some(cols) = request_tags.rwal_count {
-                            colors = cols
-                        }
-                        if let Some(_order) = request_tags.rwal_order {
-                            order = _order
-                        }
+                for chunk in wallpapers.chunks(4) {
+                    let mut handlers = Vec::new();
 
-                        rwal_params = Some(RwalParams::new(
-                            thumb_range,
-                            clamp_range,
-                            accent_color,
-                            colors,
-                            order,
-                        ));
-                    }
-
-                    config.rwal_params = rwal_params;
-
-                    let mut image_ops: Option<ImageOperations> = None;
-
-                    if let Some(_image_ops) = config.image_operations {
-                        let mut contrast = _image_ops.contrast;
-                        let mut brightness = _image_ops.brightness;
-                        let mut hue = _image_ops.hue;
-                        let mut blur = _image_ops.blur;
-                        let mut invert = _image_ops.invert;
-                        let mut flip_h = _image_ops.flip_h;
-                        let mut flip_v = _image_ops.flip_v;
-
-                        if let Some(_contrast) = request_tags.config_contrast {
-                            contrast = _contrast
-                        }
-                        if let Some(_brightness) = request_tags.config_brightness {
-                            brightness = _brightness
-                        }
-                        if let Some(_hue) = request_tags.config_hue {
-                            hue = _hue
-                        }
-                        if let Some(_blur) = request_tags.config_blur {
-                            blur = _blur
-                        }
-                        if let Some(_invert) = request_tags.config_invert {
-                            invert = _invert
-                        }
-                        if let Some(_flip_h) = request_tags.config_flip_h {
-                            flip_h = _flip_h
-                        }
-                        if let Some(_flip_v) = request_tags.config_flip_v {
-                            flip_v = _flip_v
-                        }
-
-                        image_ops = Some(ImageOperations::new(
-                            contrast, brightness, hue, blur, invert, flip_h, flip_v,
-                        ));
+                    for wallpaper in chunk {
+                        processed_images += 1;
+                        let wallpaper = wallpaper.clone();
+                        let config = config.clone();
+                        let request = request.clone();
+                        let thread = thread::spawn(move || {
+                            process_request(&request, &config, &wallpaper);
+                        });
+                        handlers.push(thread);
                     }
 
-                    config.image_operations = image_ops;
-
-                    if let Some(image) = request_tags.image {
-                        let mut _handlers = Vec::new();
-
-                        if let Some(w_cache) = request_tags.w_cache {
-                            if w_cache {
-                                let config = config.clone();
-                                let image_path = image.clone();
-                                let _thread = thread::spawn(move || {
-                                    cache_wallpaper(&config, &image_path);
-                                });
-                                _handlers.push(_thread);
-                            }
-                        }
-
-                        if let Some(w_set) = request_tags.w_set {
-                            if w_set {
-                                let config = config.clone();
-                                let image_path = image.clone();
-                                let _thread = thread::spawn(move || {
-                                    set_wallpaper(&config, &image_path);
-                                });
-                                _handlers.push(_thread);
-                            }
-                        }
-
-                        if let Some(c_cache) = request_tags.c_cache {
-                            if c_cache {
-                                let config = config.clone();
-                                let image_path = image.clone();
-                                let _thread = thread::spawn(move || {
-                                    cache_scheme(&config, &image_path);
-                                });
-                                _handlers.push(_thread);
-                            }
-                        }
-
-                        if let Some(c_set) = request_tags.c_set {
-                            if c_set {
-                                let config = config.clone();
-                                let image_path = image.clone();
-                                let _thread = thread::spawn(move || {
-                                    set_scheme(&config, &image_path);
-                                });
-                                _handlers.push(_thread);
-                            }
-                        }
-
-                        for handler in _handlers {
-                            handler.join().unwrap();
-                        }
+                    for handle in handlers {
+                        handle.join().unwrap();
                     }
-                });
-
-                handlers.push(thread)
+                }
+            } else {
+                let wallpaper = select_random(wallpapers);
+                process_request(&request, &config, &wallpaper);
+                processed_images = 1;
             }
-            for handler in handlers {
-                handler.join().unwrap();
+            let end_time = unix_timestamp();
+
+            add_key_to_value(respond, "end_time", json!(end_time));
+            return Ok(format!("processed {} images", processed_images));
+        }
+
+        if !is_file_image(&image_path) {
+            return Err("file is not an image or has unsuported format".to_string());
+        }
+
+        process_request(&request, &config, &image_path);
+        Ok("request processed".to_string())
+    }
+
+    pub fn handle(&mut self) -> String {
+        let start_time = unix_timestamp();
+
+        let request_result = serde_json::from_str::<Request>(&self.message);
+
+        let mut respond = Value::Object(Map::new());
+        add_key_to_value(&mut respond, "start_time", json!(start_time));
+
+        if request_result.is_err() {
+            let end_time = unix_timestamp();
+            let time_elapsed = end_time - start_time;
+
+            log(&format!("Request processed in {}ms.", time_elapsed,));
+
+            add_key_to_value(&mut respond, "end_time", json!(end_time));
+            add_key_to_value(&mut respond, "time_elapsed", json!(time_elapsed));
+
+            add_key_to_value(
+                &mut respond,
+                "error",
+                json!("error while deserializing request"),
+            );
+            if let Ok(msg) = serde_json::to_string(&respond) {
+                return msg;
+            }
+            return "{error: \"caught unexpected error while serializing responce\"}"
+                .to_string();
+        }
+
+        let request = request_result.unwrap();
+
+        // handle requests which does not require image
+        if request.get_config {
+            if let Ok(value) = serde_json::to_string(&self.config.clone()) {
+                add_key_to_value(&mut respond, "config", Value::String(value));
+            }
+        }
+        if request.get_current_colorscheme {}
+
+        // handle requests which does require image
+        if request.image.is_some() {
+            match self.handle_image_request(&request, &mut respond) {
+                Ok(msg) => {
+                    add_key_to_value(&mut respond, "message", Value::String(msg));
+                },
+                Err(msg) => {
+                    add_key_to_value(&mut respond, "error", Value::String(msg));
+                },
+            }
+        }
+        
+        let end_time = unix_timestamp();
+        let time_elapsed = end_time - start_time;
+
+        log(&format!("Request processed in {}ms.", time_elapsed,));
+
+        add_key_to_value(&mut respond, "end_time", json!(end_time));
+        add_key_to_value(&mut respond, "time_elapsed", json!(time_elapsed));
+        if let Ok(msg) = serde_json::to_string(&respond) {
+            return msg;
+        }
+        return "{message: \"caught unexpected error while serializing responce\"}".to_string();
+    }
+}
+
+fn collect_config_from_request(mut config: Config, request: &Request) -> Config {
+    if let Some(displays) = &request.displays {
+        config.displays = Some(displays.iter().map(|d| d.clone()).collect())
+    }
+    if let Some(templates) = &request.templates {
+        config.templates = Some(templates.iter().map(|t| t.clone()).collect())
+    }
+    if let Some(set_command) = &request.set_command {
+        config.set_command = Some(set_command.clone())
+    }
+    if let Some(resize_alg) = &request.resize_alg {
+        config.resize_algorithm = Some(resize_alg.clone())
+    }
+
+    let mut rwal_params: Option<RwalParams> = None;
+
+    if let Some(_rwal_params) = config.rwal_params {
+        let mut thumb_range = _rwal_params.thumb_range;
+        let mut clamp_range = _rwal_params.clamp_range;
+        let mut accent_color = _rwal_params.accent_color;
+        let colors = _rwal_params.colors;
+        let mut order = _rwal_params.order;
+
+        if let Some(thumb) = &request.rwal_thumb {
+            if let Ok(value) = get_range_from_str::<u32>(&thumb) {
+                thumb_range = value;
+            }
+        }
+        if let Some(clamp) = &request.rwal_clamp {
+            if let Ok(value) = get_range_from_str::<f32>(&clamp) {
+                clamp_range = value;
+            }
+        }
+        if let Some(color) = request.rwal_accent {
+            accent_color = color
+        }
+        if let Some(_order) = &request.rwal_order {
+            order = match OrderBy::from_str(&_order) {
+                Ok(value) => value,
+                Err(_) => OrderBy::Hue,
             }
         }
 
-        log(&format!(
-            "Request processed in {}ms.",
-            unix_timestamp() - current_timestamp
+        rwal_params = Some(RwalParams::new(
+            thumb_range,
+            clamp_range,
+            accent_color,
+            colors,
+            order,
         ));
     }
-}
 
-struct RequestTags {
-    // Main tags
-    w_set: Option<bool>,
-    w_cache: Option<bool>,
-    c_set: Option<bool>,
-    c_cache: Option<bool>,
-    image: Option<String>,
-    set_command: Option<String>,
-    // Config tags
-    config_contrast: Option<f32>,
-    config_brightness: Option<i32>,
-    config_hue: Option<i32>,
-    config_blur: Option<f32>,
-    config_invert: Option<bool>,
-    config_flip_h: Option<bool>,
-    config_flip_v: Option<bool>,
-    config_displays: Option<Vec<Display>>,
-    config_templates: Option<Vec<String>>,
-    config_resize_alg: Option<String>,
-    // Rwal tags
-    rwal_thumb: Option<(u32, u32)>,
-    rwal_clamp: Option<(f32, f32)>,
-    rwal_count: Option<u32>,
-    rwal_accent: Option<u32>,
-    rwal_order: Option<OrderBy>,
-}
+    config.rwal_params = rwal_params;
 
-impl RequestTags {
-    fn new(message: &str) -> Self {
-        let mut w_set: Option<bool> = None;
-        let mut w_cache: Option<bool> = None;
-        let mut c_set: Option<bool> = None;
-        let mut c_cache: Option<bool> = None;
-        let mut image: Option<String> = None;
-        let mut set_command: Option<String> = None;
-        let mut config_contrast: Option<f32> = None;
-        let mut config_brightness: Option<i32> = None;
-        let mut config_hue: Option<i32> = None;
-        let mut config_blur: Option<f32> = None;
-        let mut config_invert: Option<bool> = None;
-        let mut config_flip_h: Option<bool> = None;
-        let mut config_flip_v: Option<bool> = None;
-        let mut config_displays: Option<Vec<Display>> = None;
-        let mut config_templates: Option<Vec<String>> = None;
-        let mut config_resize_alg: Option<String> = None;
-        let mut rwal_thumb: Option<(u32, u32)> = None;
-        let mut rwal_clamp: Option<(f32, f32)> = None;
-        let mut rwal_count: Option<u32> = None;
-        let mut rwal_accent: Option<u32> = None;
-        let mut rwal_order: Option<OrderBy> = None;
+    let mut image_ops: Option<ImageOperations> = None;
 
-        let tags: Vec<String> = message.split("    ").map(|s| s.to_string()).collect();
+    if let Some(_image_ops) = config.image_operations {
+        let mut contrast = _image_ops.contrast;
+        let mut brightness = _image_ops.brightness;
+        let mut hue = _image_ops.hue;
+        let mut blur = _image_ops.blur;
+        let mut invert = _image_ops.invert;
+        let mut flip_h = _image_ops.flip_h;
+        let mut flip_v = _image_ops.flip_v;
 
-        for (i, tag) in tags.clone().into_iter().enumerate() {
-            match tag.as_str() {
-                "W_SET" => w_set = Some(true),
-                "W_CACHE" => w_cache = Some(true),
-                "C_SET" => c_set = Some(true),
-                "C_CACHE" => c_cache = Some(true),
-                "IMAGE" => image = get_value::<String>(&tags, i),
-                "CONFIG_CONTRAST" => config_contrast = get_value::<f32>(&tags, i),
-                "CONFIG_BRIGHTNESS" => config_brightness = get_value::<i32>(&tags, i),
-                "CONFIG_HUE" => config_hue = get_value::<i32>(&tags, i),
-                "CONFIG_BLUR" => config_blur = get_value::<f32>(&tags, i),
-                "CONFIG_INVERT" => config_invert = Some(true),
-                "CONFIG_FLIP_H" => config_flip_h = Some(true),
-                "CONFIG_FLIP_V" => config_flip_v = Some(true),
-                "CONFIG_DISPLAYS" => config_displays = get_array::<Display>(&tags, i),
-                "CONFIG_TEMPLATES" => config_templates = get_array::<String>(&tags, i),
-                "CONFIG_RESIZE_ALG" => config_resize_alg = get_value::<String>(&tags, i),
-                "RWAL_THUMB" => rwal_thumb = get_thumb(&tags, i),
-                "RWAL_CLAMP" => rwal_clamp = get_clamp(&tags, i),
-                "RWAL_COUNT" => rwal_count = get_value::<u32>(&tags, i),
-                "RWAL_ACCENT" => rwal_accent = get_value::<u32>(&tags, i),
-                "RWAL_ORDER" => rwal_order = get_rwal_order(&tags, i),
-                "SET_COMMAND" => set_command = get_value::<String>(&tags, i),
-                _ => {}
-            }
+        if let Some(_contrast) = request.contrast {
+            contrast = _contrast
+        }
+        if let Some(_brightness) = request.brightness {
+            brightness = _brightness
+        }
+        if let Some(_hue) = request.hue {
+            hue = _hue
+        }
+        if let Some(_blur) = request.blur {
+            blur = _blur
+        }
+        if let Some(_invert) = request.invert {
+            invert = _invert
+        }
+        if let Some(_flip_h) = request.flip_h {
+            flip_h = _flip_h
+        }
+        if let Some(_flip_v) = request.flip_v {
+            flip_v = _flip_v
         }
 
-        RequestTags {
-            w_set,
-            w_cache,
-            c_set,
-            c_cache,
-            image,
-            set_command,
-            config_contrast,
-            config_brightness,
-            config_hue,
-            config_blur,
-            config_invert,
-            config_flip_h,
-            config_flip_v,
-            config_displays,
-            config_templates,
-            config_resize_alg,
-            rwal_thumb,
-            rwal_clamp,
-            rwal_count,
-            rwal_accent,
-            rwal_order,
-        }
+        image_ops = Some(ImageOperations::new(
+            contrast, brightness, hue, blur, invert, flip_h, flip_v,
+        ));
+    }
+
+    config.image_operations = image_ops;
+
+    config
+}
+
+fn process_request(request: &Request, config: &Config, image_path: &str) {
+    log(&format!("Processing image {}", &image_path,));
+    if request.c_cache && !request.c_set {
+        log(&format!("Caching colors for {}", &image_path,));
+        cache_scheme(config, image_path);
+    }
+    if request.w_cache && !request.w_set {
+        log(&format!("Caching wallpapers for {}", &image_path,));
+        cache_wallpaper(config, image_path);
+    }
+    if request.c_set {
+        log(&format!("Setting colors for {}", &image_path,));
+        set_scheme(config, image_path);
+    }
+    if request.w_set {
+        log(&format!("Setting wallpapers for {}", &image_path,));
+        set_wallpaper(config, image_path);
     }
 }
 
-fn get_value<T: std::str::FromStr>(tags: &Vec<String>, index: usize) -> Option<T> {
-    if index + 1 < tags.len() {
-        if let Ok(value) = tags[index + 1].parse::<T>() {
-            return Some(value);
-        }
+fn get_range_from_str<T: std::str::FromStr>(s: &str) -> Result<(T, T), ()> {
+    let values = s.split("X").collect::<Vec<&str>>();
+    if values.len() != 2 {
+        return Err(());
     }
-    None
+
+    let first = values[0].parse::<T>().map_err(|_| ())?;
+    let second = values[1].parse::<T>().map_err(|_| ())?;
+
+    Ok((first, second))
 }
 
-fn get_array<T: std::str::FromStr>(tags: &Vec<String>, index: usize) -> Option<Vec<T>> {
-    if index + 1 < tags.len() {
-        if let Some(raw_displays) = get_value::<String>(tags, index) {
-            let mut displays: Vec<T> = Vec::new();
-            raw_displays.split(",").for_each(|raw_display| {
-                if let Ok(display) = T::from_str(&raw_display) {
-                    displays.push(display)
-                }
-            });
-            return Some(displays);
-        }
-    }
-    None
+fn is_dir(path: &str) -> bool {
+    fs::metadata(path)
+        .map(|meta| meta.is_dir())
+        .unwrap_or(false)
 }
 
-fn get_clamp(tags: &Vec<String>, index: usize) -> Option<(f32, f32)> {
-    if index + 1 < tags.len() {
-        if let Some(raw_clamp) = get_value::<String>(tags, index) {
-            let clamp: Vec<String> = raw_clamp.split("X").map(|s| s.to_string()).collect();
-            if clamp.len() == 2 {
-                if let Ok(min) = clamp[0].parse::<f32>() {
-                    if let Ok(max) = clamp[1].parse::<f32>() {
-                        return Some((min, max));
-                    }
-                }
-            }
-        }
+fn select_random(strings: Vec<String>) -> String {
+    let mut rng = rng();
+
+    if let Some(random_string) = strings.choose(&mut rng) {
+        random_string.to_string()
+    } else {
+        panic!("Directory is empty")
     }
-    None
 }
 
-fn get_thumb(tags: &Vec<String>, index: usize) -> Option<(u32, u32)> {
-    if index + 1 < tags.len() {
-        if let Some(raw_thumb) = get_value::<String>(tags, index) {
-            let thumb: Vec<String> = raw_thumb.split("X").map(|s| s.to_string()).collect();
-            if thumb.len() == 2 {
-                if let Ok(min) = thumb[0].parse::<u32>() {
-                    if let Ok(max) = thumb[1].parse::<u32>() {
-                        return Some((min, max));
-                    }
-                }
-            }
-        }
+fn is_file_image(path: &str) -> bool {
+    if let Some(extension) = path.split(".").last() {
+        return matches!(
+            extension.to_lowercase().as_str(),
+            "jpg" | "jpeg" | "webp" | "png" | "gif" | "bmp" | "tiff"
+        );
     }
-    None
+    false
 }
 
-fn get_rwal_order(tags: &Vec<String>, index: usize) -> Option<OrderBy> {
-    if index + 1 < tags.len() {
-        if let Some(order) = get_value::<String>(tags, index) {
-            match order.as_str() {
-                "h" | "H" => {
-                    return Some(OrderBy::Hue);
-                }
-                "s" | "S" => {
-                    return Some(OrderBy::Saturation);
-                }
-                "v" | "V" | "b" | "B" => {
-                    return Some(OrderBy::Brightness);
-                }
-                "sem" | "semantic" => {
-                    return Some(OrderBy::Semantic);
-                }
-                _ => {}
-            }
-        }
-    }
-    None
+fn get_absolute_path(path: String) -> String {
+    let Ok(path) = PathBuf::from_str(&path);
+
+    return path
+        .canonicalize()
+        .unwrap_or_else(|_| path)
+        .to_string_lossy()
+        .to_string();
 }
 
-fn get_image(parts: Vec<&str>) -> Option<String> {
-    if let Some(index) = parts.iter().position(|&s| s == "IMAGE") {
-        if index + 1 < parts.len() {
-            return None;
-        }
-        return Some(parts[index + 1].to_string());
-    }
-    None
-}
+fn get_images_from_dir(dir: &str) -> Vec<String> {
+    let path = Path::new(dir);
+    let files = fs::read_dir(path).unwrap();
+    let mut res: Vec<String> = Vec::new();
 
-pub fn process_info_request(config: Config, request: InfoRequest) -> Option<String> {
-    match request {
-        InfoRequest::DisplaysRequest => {
-            log("Displays request received.");
-            if let Some(displays) = config.displays {
-                Some(displays.json())
-            } else {
-                None
-            }
-        }
-        InfoRequest::TemplatesRequest => {
-            log("Templates request received.");
-            if let Some(templates) = config.templates {
-                Some(templates.json())
-            } else {
-                None
-            }
-        }
-        InfoRequest::CurrentColorSchemeRequest => {
-            log("Current colorscheme request received.");
-            if !Path::new(&expand_user(COLORS_PATH)).exists() {
-                return None;
-            }
-            if let Ok(data) = fs::read_to_string(&expand_user(COLORS_PATH)) {
-                return Some(format!(
-                    "[{}]",
-                    data.split("\n")
-                        .into_iter()
-                        .map(|x| { format!("\"{x}\"") })
-                        .collect::<Vec<String>>()
-                        .join(",")
-                ));
-            }
-            None
-        }
-        InfoRequest::ImageOpsRequest => {
-            log("Image operations request received.");
-            if let Some(image_ops) = config.image_operations {
-                Some(image_ops.json())
-            } else {
-                None
-            }
-        }
-        InfoRequest::RwalParamsRequest => {
-            log("Rwal params request received.");
-            if let Some(rwal_params) = config.rwal_params {
-                Some(rwal_params.json())
-            } else {
-                None
-            }
-        }
-        InfoRequest::ConfigRequest => {
-            log("Config request received.");
-            Some(config.json())
-        }
-        InfoRequest::WallpaperCacheRequest(val) => {
-            log("Image cache info request received.");
-            if let Some(img_ops) = &config.image_operations {
-                if let Some(displays) = &config.displays {
-                    let cached_image_paths = get_cached_image_paths(
-                        &get_cached_image_names(&displays, &img_ops, &val),
-                        WALLPAPERS_DIR,
-                    );
-
-                    for cache_path in &cached_image_paths {
-                        if !Path::new(&expand_user(cache_path)).exists() {
-                            cache_wallpaper(&config, &val);
-                            break;
-                        }
-                    }
-
-                    let mut w_caches = Vec::new();
-                    for (i, path) in cached_image_paths.into_iter().enumerate() {
-                        w_caches.push(WCacheInfo::new(&displays[i].name(), &path));
-                    }
-
-                    Some(format!(
-                        "[{}]",
-                        w_caches
-                            .into_iter()
-                            .map(|x| { x.json() })
-                            .collect::<Vec<String>>()
-                            .join(",")
+    for entry in files {
+        let entry = entry.unwrap();
+        let file_type = entry.file_type().unwrap();
+        if file_type.is_dir() {
+            res.extend(get_images_from_dir(&get_absolute_path(
+                entry.path().to_string_lossy().to_string(),
+            )))
+        } else if file_type.is_file() {
+            if let Some(extension) = entry.path().extension() {
+                if is_file_image(extension.to_str().unwrap_or("")) {
+                    res.push(get_absolute_path(
+                        entry.path().to_string_lossy().to_string(),
                     ))
-                } else {
-                    None
                 }
-            } else {
-                None
             }
         }
-        InfoRequest::ColoschemeCacheRequest(val) => {
-            log("Colorscheme cache info request received.");
-            if let Some(colors) = get_cached_colors(&config, &val) {
-                return Some(format!(
-                    "[{}]",
-                    colors
-                        .into_iter()
-                        .map(|x| { format!("\"{x}\"") })
-                        .collect::<Vec<String>>()
-                        .join(",")
-                ));
-            }
-            None
-        }
-        _ => None,
     }
+    res
 }
 
-pub fn handle_request(
-    request: &str,
-    tx: &mpsc::Sender<MpscData>,
-    listener_rx: &Receiver<MpscData>,
-) -> Option<String> {
-    let info_patterns = [
-        "GET_DISPLAYS",
-        "GET_TEMPLATES",
-        "GET_SCHEME",
-        "GET_IMAGE_OPS",
-        "GET_RWAL_PARAMS",
-        "GET_CONFIG",
-        "GET_W_CACHE",
-        "GET_C_CACHE",
-    ];
-
-    for pat in info_patterns {
-        if request.contains(pat) {
-            let request = match pat {
-                "GET_DISPLAYS" => MpscData::InfoRequest(InfoRequest::DisplaysRequest),
-                "GET_TEMPLATES" => MpscData::InfoRequest(InfoRequest::TemplatesRequest),
-                "GET_SCHEME" => MpscData::InfoRequest(InfoRequest::CurrentColorSchemeRequest),
-                "GET_IMAGE_OPS" => MpscData::InfoRequest(InfoRequest::ImageOpsRequest),
-                "GET_RWAL_PARAMS" => MpscData::InfoRequest(InfoRequest::RwalParamsRequest),
-                "GET_CONFIG" => MpscData::InfoRequest(InfoRequest::ConfigRequest),
-                "GET_W_CACHE" => {
-                    if let Some(val) = get_image(request.split_whitespace().collect()) {
-                        MpscData::InfoRequest(InfoRequest::WallpaperCacheRequest(val))
-                    } else {
-                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
-                    }
-                }
-                "GET_C_CACHE" => {
-                    if let Some(val) = get_image(request.split_whitespace().collect()) {
-                        MpscData::InfoRequest(InfoRequest::ColoschemeCacheRequest(val))
-                    } else {
-                        MpscData::InfoRequest(InfoRequest::EmptyRequest)
-                    }
-                }
-                _ => MpscData::InfoRequest(InfoRequest::EmptyRequest),
-            };
-
-            if tx.send(request.clone()).is_ok() {
-                if let Ok(value) = listener_rx.recv_timeout(Duration::from_millis(10000)) {
-                    if let MpscData::ListenerRespond(value) = value {
-                        return Some(value);
-                    }
-                }
-            }
-        }
+fn add_key_to_value(value: &mut Value, key: &str, new_value: Value) {
+    if let Value::Object(ref mut map) = value {
+        map.insert(key.to_string(), new_value);
     }
-
-    let _ = tx.send(MpscData::ListenerRequest(request.to_string()));
-
-    None
 }
