@@ -6,7 +6,8 @@ use super::rgb::RGB;
 pub enum Color {
     RGB(RGB),
     HEX(HEX),
-    HSV(HSV),
+    // TODO implement Hsv() template function
+    _HSV(HSV),
 }
 
 pub trait IntoRGB {
