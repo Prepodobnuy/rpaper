@@ -5,7 +5,7 @@ use std::thread;
 
 use crate::colorscheme::colors::color::Color;
 use crate::colorscheme::colorvariable::ColorValue;
-use crate::{expand_user, spawn, system};
+use crate::{expand_user, system};
 
 use super::parser::collect_colors;
 use super::parser::collect_command;
@@ -141,7 +141,9 @@ impl Template {
 
     fn exec_after(&self) {
         let commands = self.commands_after.clone();
-        let thread = thread::spawn(move || {
+        let _ = thread::Builder::new()
+            .name(format!("template {} exec_after", self.self_path))
+            .spawn(move || {
             for command in &commands {
                 if !command.is_empty() {
                     system(command);
